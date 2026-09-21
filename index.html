@@ -56,6 +56,14 @@
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;
     padding:10px 18px;border-radius:10px;font-size:.88rem;z-index:999;box-shadow:0 4px 14px rgba(0,0,0,.2);}
   .scoreInput{width:70px;}
+  .reasonGroup{display:flex;gap:4px;margin-top:4px;}
+  .reasonChip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;
+    border:1.5px solid var(--border);border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;
+    color:var(--muted);background:#fff;user-select:none;position:relative;}
+  .reasonChip input{position:absolute;opacity:0;width:0;height:0;}
+  .reasonChip.checked{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .reasonLegend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:6px 0 12px;}
+  .reasonLegend b{color:var(--accent);}
   a.link{color:var(--primary);cursor:pointer;font-weight:600;text-decoration:underline;}
   .empty{color:var(--muted);font-style:italic;padding:14px 0;}
   .flexend{display:flex;justify-content:flex-end;gap:8px;}
@@ -111,6 +119,27 @@ function toast(msg){
   setTimeout(()=>t.remove(), 2400);
 }
 function uid(){ return 'id'+Date.now()+Math.random().toString(36).slice(2,8); }
+
+/* ==================== REASON CODES ==================== */
+const REASON_CODES = [
+  {code:'%', desc:'ทำงานไม่ครบเกิน 40% ของงานนั้น'},
+  {code:'L', desc:'ส่งงานช้ากว่ากำหนด'},
+  {code:'C', desc:'งานไม่เรียบร้อย ไม่เป็นระเบียบ หรือไม่สะอาด'}
+];
+function parseReasonCodes(reasonStr){
+  if(!reasonStr) return [];
+  return reasonStr.split(',').map(s=>s.trim()).filter(s=>REASON_CODES.some(rc=>rc.code===s));
+}
+function reasonLegendHtml(){
+  return `<div class="reasonLegend">${REASON_CODES.map(rc=>`<span><b>${rc.code}</b> = ${esc(rc.desc)}</span>`).join('')}</div>`;
+}
+function reasonChipsHtml(assignmentId, checkedCodes){
+  return `<div class="reasonGroup" data-assignment="${assignmentId}">
+    ${REASON_CODES.map(rc=>`<label class="reasonChip ${checkedCodes.includes(rc.code)?'checked':''}" title="${esc(rc.desc)}">
+      <input type="checkbox" value="${rc.code}" ${checkedCodes.includes(rc.code)?'checked':''} onchange="this.closest('.reasonChip').classList.toggle('checked', this.checked)">${rc.code}
+    </label>`).join('')}
+  </div>`;
+}
 
 /* ==================== DATA REFRESH ==================== */
 async function refreshData(silent){
@@ -549,7 +578,8 @@ function renderScoreTable(subj, assignments, students, d){
   return `
   <div class="card">
     <h3>ให้คะแนน — ${esc(subj.name)}</h3>
-    <p class="muted">ใส่คะแนนและเหตุผล (กรณีคะแนนไม่เต็ม) ได้เต็มที่ แล้วกดปุ่ม "บันทึกคะแนน" ด้านล่างเมื่อกรอกเสร็จ ระบบจะไม่บันทึกหรือรีเฟรชอัตโนมัติจนกว่าจะกดปุ่ม</p>
+    <p class="muted">ใส่คะแนน และติ๊กเลือกเหตุผล (กรณีคะแนนไม่เต็ม) ได้เต็มที่ แล้วกดปุ่ม "บันทึกคะแนน" ด้านล่างเมื่อกรอกเสร็จ ระบบจะไม่บันทึกหรือรีเฟรชอัตโนมัติจนกว่าจะกดปุ่ม</p>
+    ${reasonLegendHtml()}
     <div class="tablewrap"><table id="scoreTable" data-subject="${subj.id}">
       <tr><th>เลขที่</th><th>ชื่อ-นามสกุล</th>${assignments.map(a=>`<th>${esc(a.name)}<br><span class="muted">เต็ม ${a.maxScore}</span></th>`).join('')}</tr>
       ${students.length===0?`<tr><td colspan="${2+assignments.length}" class="empty">ยังไม่มีนักเรียนในห้องนี้</td></tr>`:''}
@@ -559,9 +589,10 @@ function renderScoreTable(subj, assignments, students, d){
           <td>${esc(s.name)}</td>
           ${assignments.map(a=>{
             const sc = d.scores.find(x=>x.assignmentId===a.id && x.studentId===s.studentId);
+            const codes = parseReasonCodes(sc?sc.reason:'');
             return `<td>
               <input class="scoreInput scoreCell" type="number" data-assignment="${a.id}" value="${sc?sc.score:''}" max="${a.maxScore}" min="0">
-              <input class="reasonCell" data-assignment="${a.id}" placeholder="เหตุผล" value="${esc(sc?sc.reason:'')}" style="width:110px;margin-top:4px;font-size:.78rem">
+              ${reasonChipsHtml(a.id, codes)}
             </td>`;
           }).join('')}
         </tr>
@@ -579,9 +610,9 @@ async function submitScores(subjectId){
     const studentId = tr.getAttribute('data-student');
     tr.querySelectorAll('.scoreCell').forEach(inp=>{
       const assignmentId = inp.getAttribute('data-assignment');
-      const reasonInp = tr.querySelector('.reasonCell[data-assignment="'+assignmentId+'"]');
+      const reasonGroup = tr.querySelector('.reasonGroup[data-assignment="'+assignmentId+'"]');
       const score = inp.value===''?0:inp.value;
-      const reason = reasonInp?reasonInp.value:'';
+      const reason = reasonGroup ? Array.from(reasonGroup.querySelectorAll('input:checked')).map(c=>c.value).join(',') : '';
       tasks.push(setScore(assignmentId, studentId, score, reason));
     });
   });
@@ -710,7 +741,8 @@ function renderStudentApp(){
 }
 function renderStudentScores(d){
   if(d.subjects.length===0) return `<div class="card"><p class="empty">ยังไม่มีรายวิชา</p></div>`;
-  return d.subjects.map(subj=>{
+  const anyReason = d.scores.some(sc=>parseReasonCodes(sc.reason).length>0);
+  return (anyReason?reasonLegendHtml():'') + d.subjects.map(subj=>{
     const assignments = d.assignments.filter(a=>a.subjectId===subj.id);
     if(assignments.length===0) return `<div class="card"><h3>${esc(subj.name)}</h3><p class="empty">ยังไม่มีชิ้นงาน</p></div>`;
     return `<div class="card">
@@ -721,10 +753,14 @@ function renderStudentScores(d){
           const sc = d.scores.find(x=>x.assignmentId===a.id);
           const has = !!sc;
           const full = has && Number(sc.score)>=Number(a.maxScore);
+          const codes = has ? parseReasonCodes(sc.reason) : [];
           return `<tr>
             <td>${esc(a.name)}${a.description?`<br><span class="muted">${esc(a.description)}</span>`:''}</td>
             <td>${has?`<span class="pill ${full?'ok':'warn'}">${sc.score} / ${a.maxScore}</span>`:'<span class="muted">ยังไม่ให้คะแนน</span>'}</td>
-            <td>${has&&sc.reason?esc(sc.reason):''}</td>
+            <td>${codes.map(c=>{
+              const rc = REASON_CODES.find(r=>r.code===c);
+              return `<span class="reasonChip checked" title="${esc(rc?rc.desc:'')}" style="cursor:default">${c}</span>`;
+            }).join(' ')}</td>
           </tr>`;
         }).join('')}
       </table></div>
