@@ -1,2 +1,4 @@
 # classroom-app
-ระบบจัดการห้องเรียนผ่าน App Script
+ระบบจัดการห้องเรียน
+Google sheet + App Script
+(Classroom-data)
