@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ระบบจัดการห้องเรียน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --primary:#2f6f5e; --primary-dark:#204b40; --primary-light:#e7f2ee;
+    --accent:#c98a3a; --danger:#c0453a; --bg:#f6f5f1; --card:#ffffff;
+    --text:#222; --muted:#6b6b64; --border:#e4e1d8; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
+  #app{max-width:920px;margin:0 auto;padding:14px 14px 60px;}
+  h1,h2,h3{margin:.2em 0;}
+  h1{font-size:1.3rem;color:var(--primary-dark);}
+  h2{font-size:1.1rem;color:var(--primary-dark);}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;
+    font-size:.95rem;cursor:pointer;font-family:inherit;font-weight:600;}
+  .btn:hover{background:var(--primary-dark);}
+  .btn.secondary{background:#fff;color:var(--primary);border:1.5px solid var(--primary);}
+  .btn.danger{background:var(--danger);}
+  .btn.small{padding:6px 10px;font-size:.82rem;border-radius:8px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  input,select,textarea{font-family:inherit;font-size:.95rem;padding:9px 10px;border:1.5px solid var(--border);
+    border-radius:9px;background:#fff;color:var(--text);width:100%;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--primary);border-color:var(--primary);}
+  label{font-size:.82rem;color:var(--muted);display:block;margin-bottom:3px;}
+  .field{margin-bottom:10px;flex:1;min-width:140px;}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;}
+  th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.02em;}
+  .tablewrap{overflow-x:auto;}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.75rem;font-weight:600;}
+  .pill.ok{background:#e2f3e8;color:#2a7a45;}
+  .pill.warn{background:#fdeee0;color:var(--accent);}
+  .pill.bad{background:#fbe6e4;color:var(--danger);}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .tab{padding:8px 14px;border-radius:9px;background:#fff;border:1.5px solid var(--border);cursor:pointer;font-size:.88rem;font-weight:600;color:var(--muted);}
+  .tab.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap;}
+  .muted{color:var(--muted);font-size:.85rem;}
+  .center{text-align:center;}
+  .login-wrap{max-width:380px;margin:40px auto;}
+  .roleBtn{flex:1;padding:22px 10px;text-align:center;border-radius:var(--radius);border:2px solid var(--border);
+    cursor:pointer;background:#fff;font-weight:700;}
+  .roleBtn.selected{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark);}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;
+    padding:10px 18px;border-radius:10px;font-size:.88rem;z-index:999;box-shadow:0 4px 14px rgba(0,0,0,.2);}
+  .scoreInput{width:70px;}
+  a.link{color:var(--primary);cursor:pointer;font-weight:600;text-decoration:underline;}
+  .empty{color:var(--muted);font-style:italic;padding:14px 0;}
+  .flexend{display:flex;justify-content:flex-end;gap:8px;}
+  .headRow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){--bg:#181a17;--card:#22241f;--text:#eee;--muted:#9a9a92;--border:#33352d;--primary-light:#1c2b26;}
+  }
+  :root[data-theme="dark"]{--bg:#181a17;--card:#22241f;--text:#eee;--muted:#9a9a92;--border:#33352d;--primary-light:#1c2b26;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ==================== CONFIG ==================== */
+// วาง Web App URL จาก Google Apps Script ตรงนี้ (หรือใส่ผ่านหน้าตั้งค่าในแอปก็ได้)
+let API_URL = localStorage.getItem('apiUrl') || '';
+
+/* ==================== STATE ==================== */
+let state = {
+  role: null,           // 'teacher' | 'student'
+  pin: '',
+  studentId: '',
+  password: '',
+  data: null,            // teacherData or studentData payload
+  view: 'login',
+  currentClassroomId: null,
+  currentSubjectId: null,
+  teacherTab: 'classrooms',
+  studentTab: 'scores',
+  loading: false,
+  attendanceDate: new Date().toISOString().slice(0,10),
+};
+let pollTimer = null;
+
+/* ==================== API ==================== */
+async function apiGet(params){
+  const url = API_URL + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url, {method:'GET'});
+  return res.json();
+}
+async function apiPost(body){
+  const res = await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // avoid CORS preflight on Apps Script
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2400);
+}
+function uid(){ return 'id'+Date.now()+Math.random().toString(36).slice(2,8); }
+
+/* ==================== DATA REFRESH ==================== */
+async function refreshData(silent){
+  if(!API_URL) return;
+  try{
+    if(state.role==='teacher'){
+      const r = await apiGet({action:'teacherData', pin: state.pin});
+      if(!r.ok) throw new Error(r.error);
+      state.data = r.data;
+    } else if(state.role==='student'){
+      const r = await apiGet({action:'studentData', studentId: state.studentId, password: state.password});
+      if(!r.ok) throw new Error(r.error);
+      state.data = r.data;
+    }
+    render();
+  }catch(err){
+    if(!silent) toast('เชื่อมต่อไม่สำเร็จ: '+err.message);
+  }
+}
+function isEditingFocused(){
+  const el = document.activeElement;
+  if(!el || !el.closest) return false;
+  if(!el.closest('#app')) return false;
+  return ['INPUT','TEXTAREA','SELECT'].indexOf(el.tagName)!==-1;
+}
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(()=>{
+    if(isEditingFocused()) return; // อย่าดึงข้อมูล/วาดหน้าใหม่ขณะกำลังกรอกอยู่
+    refreshData(true);
+  }, 7000);
+}
+
+/* ==================== LOGIN ==================== */
+async function doTeacherLogin(pin){
+  state.loading=true; render();
+  try{
+    const r = await apiPost({action:'verifyTeacherPin', pin});
+    if(!r.ok) throw new Error(r.error);
+    state.role='teacher'; state.pin=pin; state.view='app'; state.teacherTab='classrooms';
+    await refreshData();
+    startPolling();
+  }catch(err){ toast(err.message); }
+  state.loading=false; render();
+}
+async function doStudentLogin(studentId, password){
+  state.loading=true; render();
+  try{
+    const r = await apiPost({action:'verifyStudent', studentId, password});
+    if(!r.ok) throw new Error(r.error);
+    state.role='student'; state.studentId=studentId; state.password=password; state.view='app'; state.studentTab='scores';
+    await refreshData();
+    startPolling();
+  }catch(err){ toast(err.message); }
+  state.loading=false; render();
+}
+function logout(){
+  if(pollTimer) clearInterval(pollTimer);
+  state = {role:null,pin:'',studentId:'',password:'',data:null,view:'login',currentClassroomId:null,currentSubjectId:null,teacherTab:'classrooms',studentTab:'scores',loading:false,attendanceDate:new Date().toISOString().slice(0,10)};
+  render();
+}
+
+/* ==================== TEACHER ACTIONS ==================== */
+async function addClassroom(name, pass){
+  if(!name) return toast('กรอกชื่อห้องเรียน');
+  const r = await apiPost({action:'insert', table:'Classrooms', pin:state.pin,
+    row:{name, studentPassword: pass||'1234', createdAt: new Date().toISOString()}});
+  if(!r.ok) return toast(r.error);
+  toast('เพิ่มห้องเรียนแล้ว'); await refreshData();
+}
+async function updateClassroom(id, patch){
+  const r = await apiPost({action:'update', table:'Classrooms', pin:state.pin, id, patch});
+  if(!r.ok) return toast(r.error);
+  toast('บันทึกแล้ว'); await refreshData();
+}
+async function deleteClassroom(id){
+  if(!confirm('ลบห้องเรียนนี้? ข้อมูลวิชา/นักเรียน/คะแนนในห้องนี้จะไม่ถูกลบอัตโนมัติ')) return;
+  const r = await apiPost({action:'delete', table:'Classrooms', pin:state.pin, id});
+  if(!r.ok) return toast(r.error);
+  if(state.currentClassroomId===id) state.currentClassroomId=null;
+  toast('ลบแล้ว'); await refreshData();
+}
+async function addSubject(classroomId, name){
+  if(!name) return toast('กรอกชื่อวิชา');
+  const r = await apiPost({action:'insert', table:'Subjects', pin:state.pin,
+    row:{classroomId, name, createdAt:new Date().toISOString()}});
+  if(!r.ok) return toast(r.error);
+  toast('เพิ่มวิชาแล้ว'); await refreshData();
+}
+async function deleteSubject(id){
+  if(!confirm('ลบวิชานี้?')) return;
+  const r = await apiPost({action:'delete', table:'Subjects', pin:state.pin, id});
+  if(!r.ok) return toast(r.error);
+  if(state.currentSubjectId===id) state.currentSubjectId=null;
+  toast('ลบแล้ว'); await refreshData();
+}
+async function updateSubject(id, patch){
+  const r = await apiPost({action:'update', table:'Subjects', pin:state.pin, id, patch});
+  if(!r.ok) return toast(r.error);
+  await refreshData();
+}
+async function addAssignment(subjectId, name, maxScore, description){
+  if(!name) return toast('กรอกชื่องาน');
+  const r = await apiPost({action:'insert', table:'Assignments', pin:state.pin,
+    row:{subjectId, name, maxScore: Number(maxScore)||100, description: description||'', createdAt:new Date().toISOString()}});
+  if(!r.ok) return toast(r.error);
+  toast('เพิ่มชิ้นงานแล้ว'); await refreshData();
+}
+async function updateAssignment(id, patch){
+  const r = await apiPost({action:'update', table:'Assignments', pin:state.pin, id, patch});
+  if(!r.ok) return toast(r.error);
+  toast('บันทึกแล้ว'); await refreshData();
+}
+async function deleteAssignment(id){
+  if(!confirm('ลบชิ้นงานนี้? คะแนนที่เคยให้จะถูกลบไปด้วย')) return;
+  const r = await apiPost({action:'delete', table:'Assignments', pin:state.pin, id});
+  if(!r.ok) return toast(r.error);
+  toast('ลบแล้ว'); await refreshData();
+}
+async function setScore(assignmentId, studentId, score, reason){
+  const r = await apiPost({action:'setScore', pin:state.pin, assignmentId, studentId, score:Number(score), reason});
+  if(!r.ok) return toast(r.error);
+}
+async function addStudent(classroomId, number, studentId, name){
+  if(!studentId || !name) return toast('กรอกเลขประจำตัวและชื่อ');
+  const r = await apiPost({action:'insert', table:'Students', pin:state.pin,
+    row:{classroomId, number, studentId, name, createdAt:new Date().toISOString()}});
+  if(!r.ok) return toast(r.error);
+  toast('เพิ่มนักเรียนแล้ว'); await refreshData();
+}
+async function bulkImportStudents(classroomId, text){
+  // รองรับบรรทัดละ 1 คน คั่นด้วย tab หรือ comma: เลขที่, เลขประจำตัว, ชื่อ-นามสกุล
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const rows = [];
+  lines.forEach(line=>{
+    const parts = line.split(/\t|,/).map(p=>p.trim());
+    if(parts.length>=3){
+      rows.push({classroomId, number:parts[0], studentId:parts[1], name:parts.slice(2).join(' '), createdAt:new Date().toISOString()});
+    } else if(parts.length===2){
+      rows.push({classroomId, number:'', studentId:parts[0], name:parts[1], createdAt:new Date().toISOString()});
+    }
+  });
+  if(rows.length===0) return toast('ไม่พบข้อมูลที่ถูกต้อง (รูปแบบ: เลขที่, เลขประจำตัว, ชื่อ-นามสกุล)');
+  const r = await apiPost({action:'bulkInsert', table:'Students', pin:state.pin, rows});
+  if(!r.ok) return toast(r.error);
+  toast('นำเข้า '+rows.length+' คน สำเร็จ'); await refreshData();
+}
+async function updateStudent(id, patch){
+  const r = await apiPost({action:'update', table:'Students', pin:state.pin, id, patch});
+  if(!r.ok) return toast(r.error);
+  await refreshData();
+}
+async function deleteStudent(id){
+  if(!confirm('ลบนักเรียนคนนี้ออกจากห้อง?')) return;
+  const r = await apiPost({action:'delete', table:'Students', pin:state.pin, id});
+  if(!r.ok) return toast(r.error);
+  toast('ลบแล้ว'); await refreshData();
+}
+async function saveAttendance(records){
+  const r = await apiPost({action:'setAttendanceBulk', pin:state.pin, records});
+  if(!r.ok) return toast(r.error);
+  toast('บันทึกการเช็คชื่อแล้ว'); await refreshData();
+}
+async function changeTeacherPin(newPin){
+  if(!newPin || newPin.length<4) return toast('PIN ควรมีอย่างน้อย 4 หลัก');
+  const r = await apiPost({action:'changeTeacherPin', pin:state.pin, newPin});
+  if(!r.ok) return toast(r.error);
+  state.pin = newPin;
+  toast('เปลี่ยน PIN แล้ว');
+}
+
+/* ==================== EXCEL EXPORT ==================== */
+function exportClassroomExcel(classroomId){
+  const d = state.data;
+  const classroom = d.classrooms.find(c=>c.id===classroomId);
+  const students = d.students.filter(s=>s.classroomId===classroomId)
+    .sort((a,b)=> (Number(a.number)||0)-(Number(b.number)||0));
+  const subjects = d.subjects.filter(s=>s.classroomId===classroomId);
+  const wb = XLSX.utils.book_new();
+
+  // Roster sheet
+  const rosterAoa = [['เลขที่','เลขประจำตัว','ชื่อ-นามสกุล']];
+  students.forEach(s=>rosterAoa.push([s.number, s.studentId, s.name]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rosterAoa), 'รายชื่อ');
+
+  // Per subject: scores + attendance
+  subjects.forEach(subj=>{
+    const assignments = d.assignments.filter(a=>a.subjectId===subj.id);
+    const header = ['เลขที่','เลขประจำตัว','ชื่อ-นามสกุล'];
+    assignments.forEach(a=>header.push(a.name+' ('+a.maxScore+')', 'หมายเหตุ'));
+    const aoa = [header];
+    students.forEach(s=>{
+      const row = [s.number, s.studentId, s.name];
+      assignments.forEach(a=>{
+        const sc = d.scores.find(x=>x.assignmentId===a.id && x.studentId===s.studentId);
+        row.push(sc?sc.score:'', sc?sc.reason:'');
+      });
+      aoa.push(row);
+    });
+    const sheetName = ('คะแนน-'+subj.name).slice(0,31);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), sheetName);
+
+    // attendance matrix
+    const dates = [...new Set(d.attendance.filter(a=>a.subjectId===subj.id).map(a=>a.date))].sort();
+    if(dates.length){
+      const attHeader = ['เลขที่','เลขประจำตัว','ชื่อ-นามสกุล', ...dates];
+      const attAoa = [attHeader];
+      students.forEach(s=>{
+        const row = [s.number, s.studentId, s.name];
+        dates.forEach(dt=>{
+          const rec = d.attendance.find(a=>a.subjectId===subj.id && a.date===dt && a.studentId===s.studentId);
+          row.push(rec?rec.status:'');
+        });
+        attAoa.push(row);
+      });
+      const attName = ('เช็คชื่อ-'+subj.name).slice(0,31);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(attAoa), attName);
+    }
+  });
+
+  XLSX.writeFile(wb, (classroom?classroom.name:'classroom')+'.xlsx');
+}
+
+/* ==================== RENDER HELPERS ==================== */
+function h(html){ return html; }
+function esc(s){ return (s===undefined||s===null)?'':String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ==================== VIEWS ==================== */
+function renderLogin(){
+  const chosen = state._roleChoice || null;
+  return `
+  <div class="login-wrap">
+    <div class="card center">
+      <h1>📚 ระบบจัดการห้องเรียน</h1>
+      <p class="muted">เลือกประเภทผู้ใช้เพื่อเข้าสู่ระบบ</p>
+      <div class="row" style="margin:16px 0;">
+        <div class="roleBtn ${chosen==='teacher'?'selected':''}" onclick="state._roleChoice='teacher';render()">
+          👩‍🏫<br>ครูผู้สอน
+        </div>
+        <div class="roleBtn ${chosen==='student'?'selected':''}" onclick="state._roleChoice='student';render()">
+          🎓<br>นักเรียน
+        </div>
+      </div>
+      ${chosen==='teacher' ? `
+        <div class="field"><label>PIN ครู</label><input id="pinInput" type="password" inputmode="numeric" placeholder="กรอก PIN" onkeydown="if(event.key==='Enter')submitTeacherLogin()"></div>
+        <button class="btn" style="width:100%" ${state.loading?'disabled':''} onclick="submitTeacherLogin()">${state.loading?'กำลังเข้าสู่ระบบ...':'เข้าสู่ระบบ'}</button>
+      ` : ''}
+      ${chosen==='student' ? `
+        <div class="field"><label>เลขประจำตัว</label><input id="sidInput" placeholder="เลขประจำตัวนักเรียน"></div>
+        <div class="field"><label>รหัสผ่านห้อง</label><input id="spwInput" type="password" placeholder="รหัสผ่านที่ครูให้" onkeydown="if(event.key==='Enter')submitStudentLogin()"></div>
+        <button class="btn" style="width:100%" ${state.loading?'disabled':''} onclick="submitStudentLogin()">${state.loading?'กำลังเข้าสู่ระบบ...':'เข้าสู่ระบบ'}</button>
+      ` : ''}
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <span class="muted">Web App URL: ${API_URL?('<b>เชื่อมต่อแล้ว</b>'):'<b style="color:var(--danger)">ยังไม่ได้ตั้งค่า</b>'}</span>
+        <a class="link" onclick="showSettings()">⚙️ ตั้งค่าการเชื่อมต่อ</a>
+      </div>
+    </div>
+  </div>`;
+}
+function submitTeacherLogin(){
+  const pin = document.getElementById('pinInput').value.trim();
+  if(!API_URL) return toast('กรุณาตั้งค่า Web App URL ก่อน');
+  if(!pin) return toast('กรอก PIN');
+  doTeacherLogin(pin);
+}
+function submitStudentLogin(){
+  const sid = document.getElementById('sidInput').value.trim();
+  const pw = document.getElementById('spwInput').value.trim();
+  if(!API_URL) return toast('กรุณาตั้งค่า Web App URL ก่อน');
+  if(!sid||!pw) return toast('กรอกให้ครบ');
+  doStudentLogin(sid, pw);
+}
+function showSettings(){
+  const url = prompt('วาง Web App URL จาก Google Apps Script:', API_URL);
+  if(url!==null){ API_URL = url.trim(); localStorage.setItem('apiUrl', API_URL); render(); }
+}
+
+/* ---- Teacher app ---- */
+function renderTeacherApp(){
+  const d = state.data;
+  if(!d) return `<div class="center muted" style="padding:40px">กำลังโหลดข้อมูล...</div>`;
+
+  let body = '';
+  if(!state.currentClassroomId){
+    body = renderClassroomList();
+  } else {
+    body = renderClassroomDetail();
+  }
+
+  return `
+    <div class="topbar">
+      <h1>📚 ${state.currentClassroomId ? esc((d.classrooms.find(c=>c.id===state.currentClassroomId)||{}).name||'') : 'ห้องเรียนทั้งหมด'}</h1>
+      <div class="row">
+        ${state.currentClassroomId?`<a class="link" onclick="state.currentClassroomId=null;state.currentSubjectId=null;render()">← ห้องเรียนทั้งหมด</a>`:''}
+        <a class="link" onclick="showChangePin()">⚙️ PIN</a>
+        <a class="link" onclick="logout()">ออกจากระบบ</a>
+      </div>
+    </div>
+    ${body}
+  `;
+}
+function showChangePin(){
+  const np = prompt('ตั้ง PIN ใหม่สำหรับครู:');
+  if(np) changeTeacherPin(np.trim());
+}
+
+function renderClassroomList(){
+  const d = state.data;
+  return `
+  <div class="card">
+    <h2>เพิ่มห้องเรียนใหม่</h2>
+    <div class="row">
+      <div class="field"><label>ชื่อห้องเรียน</label><input id="newClassName" placeholder="เช่น ม.4/1"></div>
+      <div class="field"><label>รหัสผ่านนักเรียน (ใช้ร่วมกันทั้งห้อง)</label><input id="newClassPass" placeholder="เช่น 1234"></div>
+    </div>
+    <button class="btn" onclick="addClassroom(document.getElementById('newClassName').value.trim(), document.getElementById('newClassPass').value.trim())">+ เพิ่มห้องเรียน</button>
+  </div>
+  <div class="card">
+    <h2>ห้องเรียนของฉัน</h2>
+    ${d.classrooms.length===0?'<p class="empty">ยังไม่มีห้องเรียน</p>':''}
+    <div class="tablewrap"><table>
+      <tr><th>ห้องเรียน</th><th>จำนวนนักเรียน</th><th>รหัสผ่านนักเรียน</th><th></th></tr>
+      ${d.classrooms.map(c=>{
+        const n = d.students.filter(s=>s.classroomId===c.id).length;
+        return `<tr>
+          <td><a class="link" onclick="state.currentClassroomId='${c.id}';render()">${esc(c.name)}</a></td>
+          <td>${n} คน</td>
+          <td>${esc(c.studentPassword)}</td>
+          <td class="flexend">
+            <button class="btn small secondary" onclick="renamePrompt('${c.id}','${esc(c.name)}')">แก้ไข</button>
+            <button class="btn small danger" onclick="deleteClassroom('${c.id}')">ลบ</button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </table></div>
+  </div>`;
+}
+function renamePrompt(id, curName){
+  const name = prompt('ชื่อห้องเรียนใหม่:', curName);
+  if(name===null) return;
+  const pass = prompt('รหัสผ่านนักเรียนใหม่ (เว้นว่าง = ไม่เปลี่ยน):','');
+  const patch = {name};
+  if(pass) patch.studentPassword = pass;
+  updateClassroom(id, patch);
+}
+
+function renderClassroomDetail(){
+  const d = state.data;
+  const cid = state.currentClassroomId;
+  const tabs = [['subjects','วิชา & คะแนน'],['attendance','เช็คชื่อ'],['students','รายชื่อนักเรียน']];
+  const tab = state.teacherTab==='classrooms'?'subjects':state.teacherTab;
+  state.teacherTab = tab;
+  return `
+    <div class="tabs">
+      ${tabs.map(([k,label])=>`<div class="tab ${tab===k?'active':''}" onclick="state.teacherTab='${k}';render()">${label}</div>`).join('')}
+    </div>
+    ${tab==='subjects'?renderSubjectsTab(cid):''}
+    ${tab==='attendance'?renderAttendanceTab(cid):''}
+    ${tab==='students'?renderStudentsTab(cid):''}
+  `;
+}
+
+function renderSubjectsTab(cid){
+  const d = state.data;
+  const subjects = d.subjects.filter(s=>s.classroomId===cid);
+  const subjPicker = `
+  <div class="card">
+    <div class="headRow">
+      <h2>รายวิชา</h2>
+      <button class="btn small" onclick="exportClassroomExcel('${cid}')">⬇️ ส่งออก Excel</button>
+    </div>
+    <div class="row">
+      ${subjects.map(s=>`<div class="tab ${state.currentSubjectId===s.id?'active':''}" onclick="state.currentSubjectId='${s.id}';render()">${esc(s.name)}</div>`).join('')}
+      <div class="tab" onclick="promptAddSubject('${cid}')">+ เพิ่มวิชา</div>
+    </div>
+  </div>`;
+
+  if(!state.currentSubjectId || !subjects.find(s=>s.id===state.currentSubjectId)){
+    return subjPicker + (subjects.length?'':'<p class="empty">เพิ่มวิชาเพื่อเริ่มสร้างชิ้นงานและให้คะแนน</p>');
+  }
+  const subj = subjects.find(s=>s.id===state.currentSubjectId);
+  const assignments = d.assignments.filter(a=>a.subjectId===subj.id);
+  const students = d.students.filter(s=>s.classroomId===cid).sort((a,b)=>(Number(a.number)||0)-(Number(b.number)||0));
+
+  return subjPicker + `
+  <div class="card">
+    <div class="headRow">
+      <h2>${esc(subj.name)}</h2>
+      <div class="row">
+        <button class="btn small secondary" onclick="promptEditSubject('${subj.id}','${esc(subj.name)}')">แก้ไขชื่อวิชา</button>
+        <button class="btn small danger" onclick="deleteSubject('${subj.id}')">ลบวิชา</button>
+      </div>
+    </div>
+    <h3>ชิ้นงาน</h3>
+    <div class="row">
+      ${assignments.map(a=>`<span class="pill ok" style="cursor:pointer" onclick="promptEditAssignment('${a.id}')">${esc(a.name)} (${a.maxScore})</span>`).join(' ')}
+    </div>
+    <button class="btn small" style="margin-top:10px" onclick="promptAddAssignment('${subj.id}')">+ เพิ่มชิ้นงาน</button>
+  </div>
+  ${assignments.length===0 ? '<p class="empty">ยังไม่มีชิ้นงานในวิชานี้</p>' : renderScoreTable(subj, assignments, students, d)}
+  `;
+}
+function promptAddSubject(cid){
+  const name = prompt('ชื่อวิชาใหม่:');
+  if(name) addSubject(cid, name.trim());
+}
+function promptEditSubject(id, cur){
+  const name = prompt('ชื่อวิชา:', cur);
+  if(name) updateSubject(id, {name:name.trim()});
+}
+function promptAddAssignment(subjectId){
+  const name = prompt('ชื่อชิ้นงาน:');
+  if(!name) return;
+  const max = prompt('คะแนนเต็ม:', '100');
+  const desc = prompt('รายละเอียด (ถ้ามี):', '');
+  addAssignment(subjectId, name.trim(), max, desc);
+}
+function promptEditAssignment(id){
+  const d = state.data;
+  const a = d.assignments.find(x=>x.id===id);
+  if(!a) return;
+  const action = confirm('กด OK เพื่อแก้ไขชิ้นงานนี้ หรือ Cancel เพื่อลบ');
+  if(action){
+    const name = prompt('ชื่อชิ้นงาน:', a.name); if(name===null) return;
+    const max = prompt('คะแนนเต็ม:', a.maxScore); if(max===null) return;
+    const desc = prompt('รายละเอียด:', a.description||'');
+    updateAssignment(id, {name, maxScore:Number(max), description:desc});
+  } else {
+    deleteAssignment(id);
+  }
+}
+
+function renderScoreTable(subj, assignments, students, d){
+  return `
+  <div class="card">
+    <h3>ให้คะแนน — ${esc(subj.name)}</h3>
+    <p class="muted">ใส่คะแนนและเหตุผล (กรณีคะแนนไม่เต็ม) ได้เต็มที่ แล้วกดปุ่ม "บันทึกคะแนน" ด้านล่างเมื่อกรอกเสร็จ ระบบจะไม่บันทึกหรือรีเฟรชอัตโนมัติจนกว่าจะกดปุ่ม</p>
+    <div class="tablewrap"><table id="scoreTable" data-subject="${subj.id}">
+      <tr><th>เลขที่</th><th>ชื่อ-นามสกุล</th>${assignments.map(a=>`<th>${esc(a.name)}<br><span class="muted">เต็ม ${a.maxScore}</span></th>`).join('')}</tr>
+      ${students.length===0?`<tr><td colspan="${2+assignments.length}" class="empty">ยังไม่มีนักเรียนในห้องนี้</td></tr>`:''}
+      ${students.map(s=>`
+        <tr data-student="${s.studentId}">
+          <td>${esc(s.number)}</td>
+          <td>${esc(s.name)}</td>
+          ${assignments.map(a=>{
+            const sc = d.scores.find(x=>x.assignmentId===a.id && x.studentId===s.studentId);
+            return `<td>
+              <input class="scoreInput scoreCell" type="number" data-assignment="${a.id}" value="${sc?sc.score:''}" max="${a.maxScore}" min="0">
+              <input class="reasonCell" data-assignment="${a.id}" placeholder="เหตุผล" value="${esc(sc?sc.reason:'')}" style="width:110px;margin-top:4px;font-size:.78rem">
+            </td>`;
+          }).join('')}
+        </tr>
+      `).join('')}
+    </table></div>
+    ${students.length && assignments.length ? `<div class="flexend" style="margin-top:10px"><button class="btn" onclick="submitScores('${subj.id}')">บันทึกคะแนน</button></div>` : ''}
+  </div>`;
+}
+async function submitScores(subjectId){
+  const table = document.getElementById('scoreTable');
+  if(!table) return;
+  const rows = table.querySelectorAll('tr[data-student]');
+  const tasks = [];
+  rows.forEach(tr=>{
+    const studentId = tr.getAttribute('data-student');
+    tr.querySelectorAll('.scoreCell').forEach(inp=>{
+      const assignmentId = inp.getAttribute('data-assignment');
+      const reasonInp = tr.querySelector('.reasonCell[data-assignment="'+assignmentId+'"]');
+      const score = inp.value===''?0:inp.value;
+      const reason = reasonInp?reasonInp.value:'';
+      tasks.push(setScore(assignmentId, studentId, score, reason));
+    });
+  });
+  await Promise.all(tasks);
+  toast('บันทึกคะแนนทั้งหมดแล้ว');
+  await refreshData();
+}
+
+function renderAttendanceTab(cid){
+  const d = state.data;
+  const subjects = d.subjects.filter(s=>s.classroomId===cid);
+  const students = d.students.filter(s=>s.classroomId===cid).sort((a,b)=>(Number(a.number)||0)-(Number(b.number)||0));
+  if(!state.currentSubjectId || !subjects.find(s=>s.id===state.currentSubjectId)){
+    state.currentSubjectId = subjects[0]?subjects[0].id:null;
+  }
+  const subj = subjects.find(s=>s.id===state.currentSubjectId);
+  const statuses = [['present','มา','ok'],['late','สาย','warn'],['absent','ขาด','bad'],['leave','ลา','warn']];
+
+  if(!subj) return `<div class="card"><p class="empty">เพิ่มวิชาก่อนเพื่อเช็คชื่อ</p></div>`;
+
+  const existing = {};
+  d.attendance.filter(a=>a.subjectId===subj.id && a.date===state.attendanceDate)
+    .forEach(a=>existing[a.studentId]={status:a.status, note:a.note});
+
+  return `
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>วิชา</label>
+        <select onchange="state.currentSubjectId=this.value;render()">
+          ${subjects.map(s=>`<option value="${s.id}" ${s.id===subj.id?'selected':''}>${esc(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>วันที่</label><input type="date" value="${state.attendanceDate}" onchange="state.attendanceDate=this.value;render()"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>เช็คชื่อ — ${esc(subj.name)} (${state.attendanceDate})</h3>
+    <div class="tablewrap"><table id="attTable">
+      <tr><th>เลขที่</th><th>ชื่อ-นามสกุล</th><th>สถานะ</th><th>หมายเหตุ</th></tr>
+      ${students.length===0?`<tr><td colspan="4" class="empty">ยังไม่มีนักเรียนในห้องนี้</td></tr>`:''}
+      ${students.map(s=>{
+        const cur = existing[s.studentId] || {status:'present', note:''};
+        return `<tr data-student="${s.studentId}">
+          <td>${esc(s.number)}</td><td>${esc(s.name)}</td>
+          <td><select class="attStatus">
+            ${statuses.map(([v,l])=>`<option value="${v}" ${cur.status===v?'selected':''}>${l}</option>`).join('')}
+          </select></td>
+          <td><input class="attNote" value="${esc(cur.note)}" placeholder="หมายเหตุ"></td>
+        </tr>`;
+      }).join('')}
+    </table></div>
+    ${students.length?`<div class="flexend" style="margin-top:10px"><button class="btn" onclick="submitAttendance('${subj.id}')">บันทึกการเช็คชื่อ</button></div>`:''}
+  </div>`;
+}
+function submitAttendance(subjectId){
+  const rows = document.querySelectorAll('#attTable tr[data-student]');
+  const records = [];
+  rows.forEach(tr=>{
+    records.push({
+      subjectId, date: state.attendanceDate,
+      studentId: tr.getAttribute('data-student'),
+      status: tr.querySelector('.attStatus').value,
+      note: tr.querySelector('.attNote').value
+    });
+  });
+  saveAttendance(records);
+}
+
+function renderStudentsTab(cid){
+  const d = state.data;
+  const students = d.students.filter(s=>s.classroomId===cid).sort((a,b)=>(Number(a.number)||0)-(Number(b.number)||0));
+  return `
+  <div class="card">
+    <h3>เพิ่มนักเรียนทีละคน</h3>
+    <div class="row">
+      <div class="field" style="max-width:90px"><label>เลขที่</label><input id="stuNum" placeholder="1"></div>
+      <div class="field"><label>เลขประจำตัว</label><input id="stuId" placeholder="12345"></div>
+      <div class="field"><label>ชื่อ-นามสกุล</label><input id="stuName" placeholder="เด็กชาย ก ข"></div>
+    </div>
+    <button class="btn" onclick="addStudent('${cid}', document.getElementById('stuNum').value.trim(), document.getElementById('stuId').value.trim(), document.getElementById('stuName').value.trim())">+ เพิ่มนักเรียน</button>
+  </div>
+  <div class="card">
+    <h3>นำเข้ารายชื่อพร้อมกันหลายคน</h3>
+    <p class="muted">วางข้อมูล 1 คน/บรรทัด รูปแบบ: เลขที่, เลขประจำตัว, ชื่อ-นามสกุล (คั่นด้วย comma หรือ tab เช่นจากการ copy จาก Excel)</p>
+    <textarea id="bulkText" rows="6" placeholder="1, 10001, เด็กชาย ก ข\n2, 10002, เด็กหญิง ค ง"></textarea>
+    <div class="flexend" style="margin-top:8px"><button class="btn" onclick="bulkImportStudents('${cid}', document.getElementById('bulkText').value)">นำเข้ารายชื่อ</button></div>
+  </div>
+  <div class="card">
+    <div class="headRow"><h3>รายชื่อนักเรียน (${students.length} คน)</h3>
+      <button class="btn small" onclick="exportClassroomExcel('${cid}')">⬇️ ส่งออก Excel</button>
+    </div>
+    <div class="tablewrap"><table>
+      <tr><th>เลขที่</th><th>เลขประจำตัว</th><th>ชื่อ-นามสกุล</th><th></th></tr>
+      ${students.length===0?`<tr><td colspan="4" class="empty">ยังไม่มีนักเรียน</td></tr>`:''}
+      ${students.map(s=>`<tr>
+        <td>${esc(s.number)}</td><td>${esc(s.studentId)}</td><td>${esc(s.name)}</td>
+        <td class="flexend">
+          <button class="btn small secondary" onclick="editStudentPrompt('${s.id}','${esc(s.number)}','${esc(s.studentId)}','${esc(s.name)}')">แก้ไข</button>
+          <button class="btn small danger" onclick="deleteStudent('${s.id}')">ลบ</button>
+        </td>
+      </tr>`).join('')}
+    </table></div>
+  </div>`;
+}
+function editStudentPrompt(id, num, sid, name){
+  const newNum = prompt('เลขที่:', num); if(newNum===null) return;
+  const newSid = prompt('เลขประจำตัว:', sid); if(newSid===null) return;
+  const newName = prompt('ชื่อ-นามสกุล:', name); if(newName===null) return;
+  updateStudent(id, {number:newNum, studentId:newSid, name:newName});
+}
+
+/* ---- Student app ---- */
+function renderStudentApp(){
+  const d = state.data;
+  if(!d) return `<div class="center muted" style="padding:40px">กำลังโหลดข้อมูล...</div>`;
+  const tabs = [['scores','คะแนน & ชิ้นงาน'],['attendance','ประวัติการเข้าเรียน']];
+  return `
+    <div class="topbar">
+      <h1>🎓 ${esc(d.me?d.me.name:'')}</h1>
+      <a class="link" onclick="logout()">ออกจากระบบ</a>
+    </div>
+    <div class="card muted">ห้องเรียน: <b>${esc(d.classroom?d.classroom.name:'')}</b> · เลขที่ ${esc(d.me?d.me.number:'')} · เลขประจำตัว ${esc(d.me?d.me.studentId:'')}</div>
+    <div class="tabs">${tabs.map(([k,l])=>`<div class="tab ${state.studentTab===k?'active':''}" onclick="state.studentTab='${k}';render()">${l}</div>`).join('')}</div>
+    ${state.studentTab==='scores'?renderStudentScores(d):renderStudentAttendance(d)}
+  `;
+}
+function renderStudentScores(d){
+  if(d.subjects.length===0) return `<div class="card"><p class="empty">ยังไม่มีรายวิชา</p></div>`;
+  return d.subjects.map(subj=>{
+    const assignments = d.assignments.filter(a=>a.subjectId===subj.id);
+    if(assignments.length===0) return `<div class="card"><h3>${esc(subj.name)}</h3><p class="empty">ยังไม่มีชิ้นงาน</p></div>`;
+    return `<div class="card">
+      <h3>${esc(subj.name)}</h3>
+      <div class="tablewrap"><table>
+        <tr><th>ชิ้นงาน</th><th>คะแนน</th><th>เหตุผล</th></tr>
+        ${assignments.map(a=>{
+          const sc = d.scores.find(x=>x.assignmentId===a.id);
+          const has = !!sc;
+          const full = has && Number(sc.score)>=Number(a.maxScore);
+          return `<tr>
+            <td>${esc(a.name)}${a.description?`<br><span class="muted">${esc(a.description)}</span>`:''}</td>
+            <td>${has?`<span class="pill ${full?'ok':'warn'}">${sc.score} / ${a.maxScore}</span>`:'<span class="muted">ยังไม่ให้คะแนน</span>'}</td>
+            <td>${has&&sc.reason?esc(sc.reason):''}</td>
+          </tr>`;
+        }).join('')}
+      </table></div>
+    </div>`;
+  }).join('');
+}
+function renderStudentAttendance(d){
+  if(d.attendance.length===0) return `<div class="card"><p class="empty">ยังไม่มีข้อมูลการเข้าเรียน</p></div>`;
+  const labelMap = {present:['มา','ok'], late:['สาย','warn'], absent:['ขาด','bad'], leave:['ลา','warn']};
+  const rows = [...d.attendance].sort((a,b)=> a.date<b.date?1:-1);
+  return `<div class="card">
+    <div class="tablewrap"><table>
+      <tr><th>วันที่</th><th>วิชา</th><th>สถานะ</th><th>หมายเหตุ</th></tr>
+      ${rows.map(a=>{
+        const subj = d.subjects.find(s=>s.id===a.subjectId);
+        const lbl = labelMap[a.status]||[a.status,'warn'];
+        return `<tr><td>${esc(a.date)}</td><td>${esc(subj?subj.name:'')}</td><td><span class="pill ${lbl[1]}">${lbl[0]}</span></td><td>${esc(a.note)}</td></tr>`;
+      }).join('')}
+    </table></div>
+  </div>`;
+}
+
+/* ==================== MAIN RENDER ==================== */
+function render(){
+  const app = document.getElementById('app');
+  if(state.view==='login'){
+    app.innerHTML = renderLogin();
+  } else if(state.role==='teacher'){
+    app.innerHTML = renderTeacherApp();
+  } else if(state.role==='student'){
+    app.innerHTML = renderStudentApp();
+  }
+}
+
+render();
+if(!API_URL){
+  setTimeout(()=>{ toast('กรุณาตั้งค่า Web App URL ก่อนใช้งาน (ปุ่ม ⚙️ ตั้งค่าการเชื่อมต่อ)'); }, 400);
+}
+</script>
+</body>
+</html>
