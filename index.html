@@ -79,7 +79,7 @@
 <script>
 /* ==================== CONFIG ==================== */
 // วาง Web App URL จาก Google Apps Script ตรงนี้ (หรือใส่ผ่านหน้าตั้งค่าในแอปก็ได้)
-let API_URL = localStorage.getItem('apiUrl') || '';
+let API_URL = localStorage.getItem('apiUrl') || 'https://script.google.com/macros/s/AKfycby35YGWD7xOV--f2HwbXoLCoRzd9--4j9lsyp6PSyrubFwBxCLts4-7W4MbbQAfvG5JNw/exec';
 
 /* ==================== STATE ==================== */
 let state = {
@@ -415,7 +415,7 @@ function submitStudentLogin(){
   doStudentLogin(sid, pw);
 }
 function showSettings(){
-  const url = prompt('วาง Web App URL จาก Google Apps Script:', API_URL);
+  const url = prompt('https://script.google.com/macros/s/AKfycby35YGWD7xOV--f2HwbXoLCoRzd9--4j9lsyp6PSyrubFwBxCLts4-7W4MbbQAfvG5JNw/exec', API_URL);
   if(url!==null){ API_URL = url.trim(); localStorage.setItem('apiUrl', API_URL); render(); }
 }
 
