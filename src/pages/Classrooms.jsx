@@ -10,6 +10,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { Link } from "react-router-dom";
 
 export default function Classrooms() {
   const [rooms, setRooms] = useState([]);
@@ -104,7 +105,10 @@ export default function Classrooms() {
             key={room.id}
             style={{ border: "1px solid #ccc", padding: 12, marginBottom: 8, borderRadius: 6 }}
           >
+            <Link to={`/teacher/classroom/${room.id}`}>
             <strong>{room.name}</strong>
+            </Link>
+            
             <div style={{ marginTop: 8 }}>
               <button onClick={() => renameRoom(room)}>แก้ไขชื่อ</button>{" "}
               <button onClick={() => changePassword(room)}>เปลี่ยนรหัสผ่าน</button>{" "}

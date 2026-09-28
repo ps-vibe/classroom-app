@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 import TeacherLogin from "./pages/TeacherLogin";
 import TeacherHome from "./pages/TeacherHome";
+import Classrooms from "./pages/Classrooms";
+import ClassroomDetail from "./pages/ClassroomDetail";
 
 export default function App() {
   return (
@@ -14,7 +16,10 @@ export default function App() {
             <TeacherHome />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<Classrooms />} />
+        <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
+      </Route>
       <Route path="*" element={<Navigate to="/teacher/login" replace />} />
     </Routes>
   );
