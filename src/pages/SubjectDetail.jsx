@@ -112,6 +112,11 @@ export default function SubjectDetail() {
     <div>
       <Link to={`/teacher/classroom/${classroomId}`}>&larr; กลับไปหน้าห้องเรียน</Link>
       <h3>วิชา {subject ? subject.name : "..."}</h3>
+      <p>
+  <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`}>
+    เช็คคาบเรียน
+  </Link>
+</p>
 
       <h4>{editingId ? "แก้ไขใบงาน" : "เพิ่มใบงาน"}</h4>
       <form onSubmit={submit} style={{ marginBottom: 20, display: "grid", gap: 8, maxWidth: 420 }}>

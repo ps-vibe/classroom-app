@@ -7,6 +7,7 @@ import ClassroomDetail from "./pages/ClassroomDetail";
 import SubjectDetail from "./pages/SubjectDetail";
 import Students from "./pages/Students";
 import ScoreEntry from "./pages/ScoreEntry";
+import AttendanceEntry from "./pages/AttendanceEntry";
 
 export default function App() {
   return (
@@ -30,7 +31,12 @@ export default function App() {
         
         <Route
   path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
-  element={<ScoreEntry />}
+  element={<ScoreEntry />} 
+/>
+
+<Route
+  path="classroom/:classroomId/subject/:subjectId/attendance"
+  element={<AttendanceEntry />}
 />
       </Route>
       <Route path="*" element={<Navigate to="/teacher/login" replace />} />
