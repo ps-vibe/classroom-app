@@ -76,6 +76,9 @@ export default function ClassroomDetail() {
     <div>
       <Link to="/teacher">&larr; กลับไปหน้าห้องเรียน</Link>
       <h3>ห้อง {room ? room.name : "..."}</h3>
+      <p>
+  <Link to={`/teacher/classroom/${classroomId}/students`}>จัดการรายชื่อนักเรียน</Link>
+</p>
 
       <h4>วิชา</h4>
       <form onSubmit={addSubject} style={{ marginBottom: 20 }}>

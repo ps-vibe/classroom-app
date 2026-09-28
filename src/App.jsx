@@ -5,6 +5,7 @@ import TeacherHome from "./pages/TeacherHome";
 import Classrooms from "./pages/Classrooms";
 import ClassroomDetail from "./pages/ClassroomDetail";
 import SubjectDetail from "./pages/SubjectDetail";
+import Students from "./pages/Students";
 
 export default function App() {
   return (
@@ -22,8 +23,10 @@ export default function App() {
         <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
         <Route
           path="classroom/:classroomId/subject/:subjectId"
-          element={<SubjectDetail />}
-        />
+          element={<SubjectDetail />}       />
+
+          <Route path="classroom/:classroomId/students" element={<Students />} />
+          
       </Route>
       <Route path="*" element={<Navigate to="/teacher/login" replace />} />
     </Routes>
