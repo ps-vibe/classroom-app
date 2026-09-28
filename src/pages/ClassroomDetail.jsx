@@ -104,7 +104,10 @@ export default function ClassroomDetail() {
             key={s.id}
             style={{ border: "1px solid #ccc", padding: 12, marginBottom: 8, borderRadius: 6 }}
           >
-            <strong>{s.name}</strong> {s.code && <span>({s.code})</span>}
+           <Link to={`/teacher/classroom/${classroomId}/subject/${s.id}`}>
+          <strong>{s.name}</strong>
+          </Link>{" "}
+          {s.code && <span>({s.code})</span>}
             <div style={{ marginTop: 8 }}>
               <button onClick={() => editSubject(s)}>แก้ไข</button>{" "}
               <button onClick={() => deleteSubject(s)} style={{ color: "red" }}>

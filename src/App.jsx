@@ -4,6 +4,7 @@ import TeacherLogin from "./pages/TeacherLogin";
 import TeacherHome from "./pages/TeacherHome";
 import Classrooms from "./pages/Classrooms";
 import ClassroomDetail from "./pages/ClassroomDetail";
+import SubjectDetail from "./pages/SubjectDetail";
 
 export default function App() {
   return (
@@ -19,6 +20,10 @@ export default function App() {
       >
         <Route index element={<Classrooms />} />
         <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
+        <Route
+          path="classroom/:classroomId/subject/:subjectId"
+          element={<SubjectDetail />}
+        />
       </Route>
       <Route path="*" element={<Navigate to="/teacher/login" replace />} />
     </Routes>
