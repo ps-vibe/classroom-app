@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import {
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
@@ -27,8 +29,14 @@ export default function Classrooms() {
     );
     return unsub;
   }, []);
+  const passwordInUse = async (pw, exceptRoomId) => {
+    const snap = await getDocs(
+      query(collection(db, "classroomSecrets"), where("password", "==", pw))
+    );
+    return snap.docs.some((d) => d.id !== exceptRoomId);
+  };
 
-  const addRoom = async (e) => {
+    const addRoom = async (e) => {
     e.preventDefault();
     setError("");
     if (password.length < 6) {
@@ -36,6 +44,10 @@ export default function Classrooms() {
       return;
     }
     try {
+      if (await passwordInUse(password)) {
+        setError("รหัสผ่านนี้ถูกใช้กับห้องอื่นแล้ว กรุณาตั้งรหัสที่ไม่ซ้ำ");
+        return;
+      }
       const ref = doc(collection(db, "classrooms"));
       const batch = writeBatch(db);
       batch.set(ref, { name: name.trim(), createdAt: serverTimestamp() });
@@ -48,12 +60,6 @@ export default function Classrooms() {
     }
   };
 
-  const renameRoom = async (room) => {
-    const newName = window.prompt("ชื่อห้องเรียนใหม่:", room.name);
-    if (!newName || !newName.trim()) return;
-    await updateDoc(doc(db, "classrooms", room.id), { name: newName.trim() });
-  };
-
   const changePassword = async (room) => {
     const newPass = window.prompt(`รหัสผ่านใหม่ของห้อง ${room.name} (อย่างน้อย 6 ตัว):`);
     if (!newPass) return;
@@ -61,8 +67,16 @@ export default function Classrooms() {
       alert("รหัสผ่านสั้นเกินไป");
       return;
     }
-    await updateDoc(doc(db, "classroomSecrets", room.id), { password: newPass });
-    alert("เปลี่ยนรหัสผ่านเรียบร้อย");
+    try {
+      if (await passwordInUse(newPass, room.id)) {
+        alert("รหัสผ่านนี้ถูกใช้กับห้องอื่นแล้ว กรุณาตั้งรหัสที่ไม่ซ้ำ");
+        return;
+      }
+      await updateDoc(doc(db, "classroomSecrets", room.id), { password: newPass });
+      alert("เปลี่ยนรหัสผ่านเรียบร้อย");
+    } catch {
+      alert("เปลี่ยนรหัสผ่านไม่สำเร็จ");
+    }
   };
 
   const deleteRoom = async (room) => {
