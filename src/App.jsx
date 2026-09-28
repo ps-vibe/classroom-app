@@ -6,6 +6,7 @@ import Classrooms from "./pages/Classrooms";
 import ClassroomDetail from "./pages/ClassroomDetail";
 import SubjectDetail from "./pages/SubjectDetail";
 import Students from "./pages/Students";
+import ScoreEntry from "./pages/ScoreEntry";
 
 export default function App() {
   return (
@@ -26,7 +27,11 @@ export default function App() {
           element={<SubjectDetail />}       />
 
           <Route path="classroom/:classroomId/students" element={<Students />} />
-          
+        
+        <Route
+  path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
+  element={<ScoreEntry />}
+/>
       </Route>
       <Route path="*" element={<Navigate to="/teacher/login" replace />} />
     </Routes>

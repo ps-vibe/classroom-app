@@ -167,6 +167,12 @@ export default function SubjectDetail() {
               คะแนนเต็ม {a.maxScore} | กำหนดส่ง {a.dueDate}
             </div>
             <div style={{ marginTop: 8 }}>
+              <Link
+  to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/scores`}
+  style={{ marginRight: 8 }}
+>
+  กรอกคะแนน
+</Link>
               <button onClick={() => startEdit(a)}>แก้ไข</button>{" "}
               <button onClick={() => remove(a)} style={{ color: "red" }}>
                 ลบ
