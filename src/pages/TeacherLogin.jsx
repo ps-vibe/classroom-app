@@ -18,7 +18,18 @@ export default function TeacherLogin() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate("/teacher");
     } catch (err) {
-      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+      console.error("login error:", err.code, err.message);
+      const wrongCredentials = [
+        "auth/invalid-credential",
+        "auth/wrong-password",
+        "auth/user-not-found",
+        "auth/invalid-email",
+      ];
+      setError(
+        wrongCredentials.includes(err.code)
+          ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+          : `เข้าสู่ระบบไม่สำเร็จ (${err.code || "unknown"})`
+      );
     } finally {
       setBusy(false);
     }
