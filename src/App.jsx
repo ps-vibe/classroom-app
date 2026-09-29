@@ -12,19 +12,18 @@ import AttendanceEntry from "./pages/AttendanceEntry";
 import StudentLogin from "./pages/StudentLogin";
 import StudentHome from "./pages/StudentHome";
 import Landing from "./pages/Landing";
+import AttendanceQR from "./pages/AttendanceQR";
+import StudentScan from "./pages/StudentScan";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/teacher/login" element={<TeacherLogin />} />
-      <Route
-        path="/teacher"
-        element={
-          <ProtectedRoute>
-            <TeacherHome />
-          </ProtectedRoute>
-        }
-      >
+      <Route path="/teacher"  element={<ProtectedRoute>  <TeacherHome />
+          </ProtectedRoute> } >
+      <Route path="classroom/:classroomId/subject/:subjectId/attendance/qr"
+  element={<AttendanceQR />} />
+        
         <Route index element={<Classrooms />} />
         <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
         <Route path="classroom/:classroomId/students" element={<Students />} />
@@ -42,15 +41,11 @@ export default function App() {
         />
       </Route>
 
+<Route path="/student/scan"  element={  <StudentProtectedRoute>
+      <StudentScan />    </StudentProtectedRoute>  }  />
       <Route path="/student/login" element={<StudentLogin />} />
-      <Route
-        path="/student"
-        element={
-          <StudentProtectedRoute>
-            <StudentHome />
-          </StudentProtectedRoute>
-        }
-      />
+      <Route path="/student" element={<StudentProtectedRoute>
+            <StudentHome />    </StudentProtectedRoute>       }     />
 
       <Route path="/" element={<Landing />} />
       <Route path="*" element={<Navigate to="/" replace />} />

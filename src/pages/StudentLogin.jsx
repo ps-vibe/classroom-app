@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "../firebase";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function StudentLogin() {
   const [studentCode, setStudentCode] = useState("");
@@ -9,6 +10,7 @@ export default function StudentLogin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,8 +27,8 @@ export default function StudentLogin() {
         setError(data.message || "เข้าสู่ระบบไม่สำเร็จ");
         return;
       }
-      await signInWithCustomToken(auth, data.token);
-      navigate("/student");
+            await signInWithCustomToken(auth, data.token);
+      navigate(searchParams.get("next") || "/student");
     } catch {
       setError("ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง");
     } finally {

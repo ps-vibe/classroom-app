@@ -161,6 +161,11 @@ export default function AttendanceEntry() {
         &larr; กลับไปหน้าวิชา
       </Link>
       <h3>เช็คคาบเรียน วิชา {subject ? subject.name : "..."}</h3>
+      <p>
+  <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/qr`}>
+    เช็คคาบเรียนด้วย QR
+  </Link>
+</p>
 
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
         <label>

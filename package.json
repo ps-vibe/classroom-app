@@ -13,6 +13,7 @@
     "firebase": "^12.19.0",
     "google-auth-library": "^11.1.0",
     "jose": "^5.10.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4"
