@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "firebase": "^12.19.0",
+    "google-auth-library": "^11.1.0",
+    "jose": "^5.10.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4"
@@ -18,7 +20,6 @@
   "engines": {
     "node": "22.x"
   },
-  
   "devDependencies": {
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
