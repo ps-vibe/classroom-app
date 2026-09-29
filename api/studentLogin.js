@@ -40,7 +40,8 @@ async function getDoc(token, path) {
 
 // ค้นหาเอกสารในคอลเลกชันด้วยเงื่อนไข field == value ผ่าน runQuery
 async function queryDocs(token, collectionId, field, value, parentPath = "") {
-  const res = await fetch(`${FIRESTORE_BASE}${parentPath ? ":" : ""}${parentPath}:runQuery`.replace(":runQuery", ":runQuery"), {
+  const url = `${FIRESTORE_BASE}${parentPath}:runQuery`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
