@@ -1,41 +1,122 @@
 import crypto from "node:crypto";
-import { initializeApp, cert, getApps } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { SignJWT } from "jose";
+import { GoogleAuth } from "google-auth-library";
 
-if (getApps().length === 0) {
-  initializeApp({
-    credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const PROJECT_ID = serviceAccount.project_id;
+const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+
+const auth = new GoogleAuth({
+  credentials: serviceAccount,
+  scopes: [
+    "https://www.googleapis.com/auth/datastore",
+    "https://www.googleapis.com/auth/identitytoolkit",
+  ],
+});
+
+async function accessToken() {
+  const client = await auth.getClient();
+  const res = await client.getAccessToken();
+  return res.token;
+}
+
+const val = (v) => {
+  if (v === undefined || v === null) return { nullValue: null };
+  if (typeof v === "string") return { stringValue: v };
+  if (typeof v === "number") return { integerValue: String(Math.trunc(v)) };
+  if (typeof v === "boolean") return { booleanValue: v };
+  return { stringValue: String(v) };
+};
+
+// อ่านเอกสารเดียวด้วย path ตรงๆ เช่น "classrooms/xxx/students/10001"
+async function getDoc(token, path) {
+  const res = await fetch(`${FIRESTORE_BASE}/${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Firestore get failed: ${res.status}`);
+  return res.json();
+}
+
+// ค้นหาเอกสารในคอลเลกชันด้วยเงื่อนไข field == value ผ่าน runQuery
+async function queryDocs(token, collectionId, field, value, parentPath = "") {
+  const res = await fetch(`${FIRESTORE_BASE}${parentPath ? ":" : ""}${parentPath}:runQuery`.replace(":runQuery", ":runQuery"), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId }],
+        where: {
+          fieldFilter: { field: { fieldPath: field }, op: "EQUAL", value: val(value) },
+        },
+        limit: 1,
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Firestore query failed: ${res.status}`);
+  const rows = await res.json();
+  const doc = rows.find((r) => r.document)?.document;
+  return doc || null;
+}
+
+async function setDoc(token, path, fields) {
+  const body = { fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, val(v)])) };
+  const res = await fetch(`${FIRESTORE_BASE}/${path}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Firestore set failed: ${res.status}`);
+}
+
+async function deleteDoc(token, path) {
+  await fetch(`${FIRESTORE_BASE}/${path}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
-const db = getFirestore();
-
-const MAX_CODE_ATTEMPTS = 5; // จำนวนครั้งที่ลองได้ ต่อรหัสประจำตัว
-const MAX_IP_FAILS = 60; // จำนวนครั้งที่ผิดได้ ต่อ IP (โรงเรียนใช้ IP ร่วมกัน จึงตั้งสูงกว่า)
-const LOCK_MINUTES = 15;
-const WINDOW_MS = LOCK_MINUTES * 60 * 1000;
 
 const sha = (text) => crypto.createHash("sha256").update(text).digest("hex");
 const reply = (res, status, message) => res.status(status).json({ message });
-const isLocked = (data) => !!data?.lockedUntil && data.lockedUntil.toMillis() > Date.now();
+const nowSec = () => Math.floor(Date.now() / 1000);
 
-// บันทึกการกรอกผิดของ IP นี้ (นับในหน้าต่างเวลา 15 นาที)
-async function recordIpFail(ipRef) {
-  await db.runTransaction(async (tx) => {
-    const data = (await tx.get(ipRef)).data();
-    const expired = !data?.windowStart || Date.now() - data.windowStart.toMillis() > WINDOW_MS;
-    const fails = expired ? 1 : (data.fails || 0) + 1;
-    const windowStart = expired ? Timestamp.now() : data.windowStart;
-    if (fails >= MAX_IP_FAILS) {
-      tx.set(ipRef, {
-        fails: 0,
-        windowStart: Timestamp.now(),
-        lockedUntil: Timestamp.fromMillis(Date.now() + WINDOW_MS),
-      });
-    } else {
-      tx.set(ipRef, { fails, windowStart });
-    }
-  });
+const MAX_CODE_ATTEMPTS = 5;
+const MAX_IP_FAILS = 60;
+const LOCK_MINUTES = 15;
+const WINDOW_SEC = LOCK_MINUTES * 60;
+
+const isLocked = (fields) => {
+  const until = fields?.lockedUntil?.integerValue;
+  return until && Number(until) > nowSec();
+};
+
+// สร้าง custom token แบบเดียวกับที่ Firebase Admin SDK ทำ (เซ็นด้วยกุญแจของ service account)
+async function createCustomToken(uid, claims) {
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    pemToArrayBuffer(serviceAccount.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const iat = nowSec();
+  return await new SignJWT({
+    uid,
+    claims,
+  })
+    .setProtectedHeader({ alg: "RS256" })
+    .setIssuedAt(iat)
+    .setExpirationTime(iat + 3600)
+    .setIssuer(serviceAccount.client_email)
+    .setSubject(serviceAccount.client_email)
+    .setAudience("https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit")
+    .sign(key);
+}
+
+function pemToArrayBuffer(pem) {
+  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const binary = Buffer.from(b64, "base64");
+  return binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength);
 }
 
 export default async function handler(req, res) {
@@ -50,57 +131,57 @@ export default async function handler(req, res) {
   const tooMany = "กรอกผิดหลายครั้ง กรุณารอสักครู่แล้วลองใหม่";
 
   try {
+    const token = await accessToken();
     const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
-    const ipRef = db.collection("loginAttempts").doc("ip_" + sha(ip));
-    const codeRef = db.collection("loginAttempts").doc("code_" + sha(studentCode));
+    const ipPath = `loginAttempts/ip_${sha(ip)}`;
+    const codePath = `loginAttempts/code_${sha(studentCode)}`;
 
-    // 1) IP นี้ถูกล็อกอยู่หรือไม่
-    if (isLocked((await ipRef.get()).data())) return reply(res, 429, tooMany);
+    const ipDoc = await getDoc(token, ipPath);
+    if (isLocked(ipDoc?.fields)) return reply(res, 429, tooMany);
 
-    // 2) นับความพยายามของรหัสประจำตัวนี้ล่วงหน้า (ใน transaction กันการยิงพร้อมกันหลายคำขอ)
-    const allowed = await db.runTransaction(async (tx) => {
-      const data = (await tx.get(codeRef)).data();
-      if (isLocked(data)) return false;
-      const fails = (data?.fails || 0) + 1;
+    const codeDoc = await getDoc(token, codePath);
+    if (isLocked(codeDoc?.fields)) return reply(res, 429, tooMany);
+
+    const prevFails = Number(codeDoc?.fields?.fails?.integerValue || 0);
+    const fails = prevFails + 1;
+
+    const fail = async () => {
       if (fails >= MAX_CODE_ATTEMPTS) {
-        tx.set(codeRef, { fails: 0, lockedUntil: Timestamp.fromMillis(Date.now() + WINDOW_MS) });
+        await setDoc(token, codePath, { fails: 0, lockedUntil: nowSec() + WINDOW_SEC });
       } else {
-        tx.set(codeRef, { fails });
+        await setDoc(token, codePath, { fails });
       }
-      return true;
-    });
-    if (!allowed) return reply(res, 429, tooMany);
-
-    // 3) หาห้องจากรหัสห้อง แล้วตรวจว่ามีรหัสประจำตัวนี้ในห้องนั้น
-    let classroomId = null;
-    const secretSnap = await db
-      .collection("classroomSecrets")
-      .where("password", "==", password)
-      .limit(1)
-      .get();
-    if (!secretSnap.empty) {
-      const id = secretSnap.docs[0].id;
-      const studentSnap = await db
-        .collection(`classrooms/${id}/students`)
-        .where("studentCode", "==", studentCode)
-        .limit(1)
-        .get();
-      if (!studentSnap.empty) classroomId = id;
-    }
-
-    if (!classroomId) {
-      await recordIpFail(ipRef);
+      const prevIpFails = Number(ipDoc?.fields?.fails?.integerValue || 0) + 1;
+      if (prevIpFails >= MAX_IP_FAILS) {
+        await setDoc(token, ipPath, { fails: 0, lockedUntil: nowSec() + WINDOW_SEC });
+      } else {
+        await setDoc(token, ipPath, { fails: prevIpFails });
+      }
       return reply(res, 401, "รหัสประจำตัวหรือรหัสห้องไม่ถูกต้อง");
-    }
+    };
 
-    // 4) ผ่านแล้ว: ล้างตัวนับ และออกโทเคนล็อกอิน
-    await codeRef.delete();
-    const token = await getAuth().createCustomToken(`s_${classroomId}_${studentCode}`, {
+    const secretDoc = await queryDocs(token, "classroomSecrets", "password", password);
+    if (!secretDoc) return await fail();
+    const classroomId = secretDoc.name.split("/").pop();
+
+    const studentDoc = await queryDocs(
+      token,
+      "students",
+      "studentCode",
+      studentCode,
+      `/classrooms/${classroomId}`
+    );
+    if (!studentDoc) return await fail();
+
+    await deleteDoc(token, codePath);
+
+    const customToken = await createCustomToken(`s_${classroomId}_${studentCode}`, {
       role: "student",
       classroomId,
       studentCode,
     });
-    return res.status(200).json({ token });
+
+    return res.status(200).json({ token: customToken });
   } catch (err) {
     console.error("studentLogin error", err);
     return reply(res, 500, "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง");
