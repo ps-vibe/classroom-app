@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
+import StudentProtectedRoute from "./StudentProtectedRoute";
 import TeacherLogin from "./pages/TeacherLogin";
 import TeacherHome from "./pages/TeacherHome";
 import Classrooms from "./pages/Classrooms";
@@ -8,6 +9,8 @@ import SubjectDetail from "./pages/SubjectDetail";
 import Students from "./pages/Students";
 import ScoreEntry from "./pages/ScoreEntry";
 import AttendanceEntry from "./pages/AttendanceEntry";
+import StudentLogin from "./pages/StudentLogin";
+import StudentHome from "./pages/StudentHome";
 
 export default function App() {
   return (
@@ -23,22 +26,31 @@ export default function App() {
       >
         <Route index element={<Classrooms />} />
         <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
+        <Route path="classroom/:classroomId/students" element={<Students />} />
         <Route
           path="classroom/:classroomId/subject/:subjectId"
-          element={<SubjectDetail />}       />
-
-          <Route path="classroom/:classroomId/students" element={<Students />} />
-        
+          element={<SubjectDetail />}
+        />
         <Route
-  path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
-  element={<ScoreEntry />} 
-/>
-
-<Route
-  path="classroom/:classroomId/subject/:subjectId/attendance"
-  element={<AttendanceEntry />}
-/>
+          path="classroom/:classroomId/subject/:subjectId/attendance"
+          element={<AttendanceEntry />}
+        />
+        <Route
+          path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
+          element={<ScoreEntry />}
+        />
       </Route>
+
+      <Route path="/student/login" element={<StudentLogin />} />
+      <Route
+        path="/student"
+        element={
+          <StudentProtectedRoute>
+            <StudentHome />
+          </StudentProtectedRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/teacher/login" replace />} />
     </Routes>
   );
