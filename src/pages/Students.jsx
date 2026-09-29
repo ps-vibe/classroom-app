@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { parseStudentRows } from "../utils";
+import { deleteStudentCascade } from "../deleteUtils";
 
 const emptyForm = { no: "", studentCode: "", prefix: "", firstName: "", lastName: "" };
 
@@ -91,9 +92,24 @@ export default function Students() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const [deletingId, setDeletingId] = useState(null);
+
   const remove = async (s) => {
-    if (!window.confirm(`ลบ ${s.prefix}${s.firstName} ${s.lastName} ใช่หรือไม่?`)) return;
-    await deleteDoc(doc(db, "classrooms", classroomId, "students", s.id));
+    if (
+      !window.confirm(
+        `ลบ ${s.prefix}${s.firstName} ${s.lastName} ใช่หรือไม่? คะแนนและการเช็คคาบเรียนของนักเรียนคนนี้จะถูกลบไปด้วย`
+      )
+    )
+      return;
+    setDeletingId(s.id);
+    try {
+      await deleteStudentCascade(classroomId, s.id);
+        } catch (err) {
+      console.error("delete student error:", err);
+      alert("ลบนักเรียนไม่สำเร็จ: " + err.message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   // ---------- นำเข้าจำนวนมาก ----------
@@ -225,9 +241,9 @@ export default function Students() {
                   </td>
                   <td style={{ border: "1px solid #ccc", padding: 8 }}>
                     <button onClick={() => startEdit(s)}>แก้ไข</button>{" "}
-                    <button onClick={() => remove(s)} style={{ color: "red" }}>
-                      ลบ
-                    </button>
+<button onClick={() => remove(s)} disabled={deletingId === s.id} style={{ color: "red" }}>
+  {deletingId === s.id ? "กำลังลบ..." : "ลบ"}
+</button>
                   </td>
                 </tr>
               ))}

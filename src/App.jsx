@@ -11,6 +11,7 @@ import ScoreEntry from "./pages/ScoreEntry";
 import AttendanceEntry from "./pages/AttendanceEntry";
 import StudentLogin from "./pages/StudentLogin";
 import StudentHome from "./pages/StudentHome";
+import Landing from "./pages/Landing";
 
 export default function App() {
   return (
@@ -51,7 +52,8 @@ export default function App() {
         }
       />
 
-      <Route path="*" element={<Navigate to="/teacher/login" replace />} />
+      <Route path="/" element={<Landing />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

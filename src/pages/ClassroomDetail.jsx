@@ -13,6 +13,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { deleteSubjectCascade } from "../deleteUtils";
 
 export default function ClassroomDetail() {
   const { classroomId } = useParams();
@@ -67,9 +68,23 @@ export default function ClassroomDetail() {
     });
   };
 
+  const [deletingId, setDeletingId] = useState(null);
+
   const deleteSubject = async (subject) => {
-    if (!window.confirm(`ลบวิชา ${subject.name} ใช่หรือไม่?`)) return;
-    await deleteDoc(doc(db, "classrooms", classroomId, "subjects", subject.id));
+    if (
+      !window.confirm(
+        `ลบวิชา ${subject.name} ใช่หรือไม่? ใบงาน คะแนน และการเช็คคาบเรียนของวิชานี้จะถูกลบไปด้วย`
+      )
+    )
+      return;
+    setDeletingId(subject.id);
+    try {
+      await deleteSubjectCascade(classroomId, subject.id);
+    } catch {
+      alert("ลบวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -113,9 +128,13 @@ export default function ClassroomDetail() {
           {s.code && <span>({s.code})</span>}
             <div style={{ marginTop: 8 }}>
               <button onClick={() => editSubject(s)}>แก้ไข</button>{" "}
-              <button onClick={() => deleteSubject(s)} style={{ color: "red" }}>
-                ลบวิชา
-              </button>
+<button
+  onClick={() => deleteSubject(s)}
+  disabled={deletingId === s.id}
+  style={{ color: "red" }}
+>
+  {deletingId === s.id ? "กำลังลบ..." : "ลบวิชา"}
+</button>
             </div>
           </li>
         ))}

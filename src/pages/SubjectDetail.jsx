@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
+import { deleteAssignmentCascade } from "../deleteUtils";
 
 const emptyForm = { title: "", type: "worksheet", maxScore: "", dueDate: "" };
 
@@ -100,12 +101,19 @@ export default function SubjectDetail() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const [deletingId, setDeletingId] = useState(null);
+
   const remove = async (a) => {
-    if (!window.confirm(`ลบ "${a.title}" ใช่หรือไม่?`)) return;
-    await deleteDoc(
-      doc(db, "classrooms", classroomId, "subjects", subjectId, "assignments", a.id)
-    );
-    if (editingId === a.id) resetForm();
+    if (!window.confirm(`ลบ "${a.title}" ใช่หรือไม่? คะแนนของงานนี้จะถูกลบไปด้วย`)) return;
+    setDeletingId(a.id);
+    try {
+      await deleteAssignmentCascade(classroomId, subjectId, a.id);
+      if (editingId === a.id) resetForm();
+    } catch {
+      alert("ลบใบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -179,9 +187,9 @@ export default function SubjectDetail() {
   กรอกคะแนน
 </Link>
               <button onClick={() => startEdit(a)}>แก้ไข</button>{" "}
-              <button onClick={() => remove(a)} style={{ color: "red" }}>
-                ลบ
-              </button>
+<button onClick={() => remove(a)} disabled={deletingId === a.id} style={{ color: "red" }}>
+  {deletingId === a.id ? "กำลังลบ..." : "ลบ"}
+</button>
             </div>
           </li>
         ))}

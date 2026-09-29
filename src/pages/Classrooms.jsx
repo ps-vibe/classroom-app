@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { Link } from "react-router-dom";
+import { deleteClassroomCascade } from "../deleteUtils";
 
 export default function Classrooms() {
   const [rooms, setRooms] = useState([]);
@@ -79,12 +80,24 @@ export default function Classrooms() {
     }
   };
 
+  const [deletingId, setDeletingId] = useState(null);
+
   const deleteRoom = async (room) => {
-    if (!window.confirm(`ลบห้อง ${room.name} ใช่หรือไม่? การลบไม่สามารถย้อนกลับได้`)) return;
-    const batch = writeBatch(db);
-    batch.delete(doc(db, "classrooms", room.id));
-    batch.delete(doc(db, "classroomSecrets", room.id));
-    await batch.commit();
+    if (
+      !window.confirm(
+        `ลบห้อง ${room.name} ใช่หรือไม่? ข้อมูลวิชา ใบงาน นักเรียน คะแนน และการเช็คคาบเรียนทั้งหมดในห้องนี้จะถูกลบไปด้วย และไม่สามารถย้อนกลับได้`
+      )
+    )
+      return;
+    setDeletingId(room.id);
+    try {
+      await deleteClassroomCascade(room.id);
+    } catch (err) {
+      console.error("delete classroom error:", err);
+      alert("ลบห้องเรียนไม่สำเร็จ: " + err.message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -126,9 +139,13 @@ export default function Classrooms() {
             <div style={{ marginTop: 8 }}>
               <button onClick={() => renameRoom(room)}>แก้ไขชื่อ</button>{" "}
               <button onClick={() => changePassword(room)}>เปลี่ยนรหัสผ่าน</button>{" "}
-              <button onClick={() => deleteRoom(room)} style={{ color: "red" }}>
-                ลบห้อง
-              </button>
+              <button
+  onClick={() => deleteRoom(room)}
+  disabled={deletingId === room.id}
+  style={{ color: "red" }}
+>
+  {deletingId === room.id ? "กำลังลบ..." : "ลบห้อง"}
+</button>
             </div>
           </li>
         ))}
