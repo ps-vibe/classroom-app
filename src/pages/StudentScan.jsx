@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 
@@ -17,6 +17,8 @@ export default function StudentScan() {
         setStatus("ลิงก์ไม่ถูกต้อง กรุณาสแกน QR ใหม่อีกครั้ง");
         return;
       }
+      if (!claims) return; // รอข้อมูลผู้ใช้โหลดให้เสร็จก่อน
+
       const scanRef = doc(
         db,
         "classrooms",
@@ -24,11 +26,6 @@ export default function StudentScan() {
         "attendanceScans",
         `${sessionId}_${claims.studentCode}`
       );
-      const existing = await getDoc(scanRef);
-      if (existing.exists()) {
-        setStatus("คุณเช็คชื่อคาบนี้ไปแล้ว");
-        return;
-      }
       try {
         await setDoc(scanRef, {
           studentCode: claims.studentCode,
@@ -37,8 +34,11 @@ export default function StudentScan() {
           scannedAt: serverTimestamp(),
         });
         setStatus("เช็คชื่อสำเร็จ");
-      } catch {
-        setStatus("รหัสหมดอายุแล้ว กรุณาสแกน QR ใหม่อีกครั้ง (QR เปลี่ยนทุก 15 วินาที)");
+      } catch (err) {
+        console.error("scan error:", err);
+        setStatus(
+          "เช็คชื่อไม่สำเร็จ (อาจเช็คชื่อไปแล้ว หรือรหัสหมดอายุ กรุณาสแกน QR ล่าสุดอีกครั้ง)"
+        );
       }
     }
     run();
