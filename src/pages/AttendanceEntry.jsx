@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -147,8 +148,9 @@ export default function AttendanceEntry() {
       );
       setDirty(new Set());
       setMessage(`บันทึกแล้ว ${codes.length} รายการ`);
-    } catch {
-      setError("บันทึกไม่สำเร็จ");
+      } catch (err) {
+      console.error("save attendance error:", err);
+      setError("บันทึกไม่สำเร็จ: " + err.message);
     } finally {
       setBusy(false);
     }

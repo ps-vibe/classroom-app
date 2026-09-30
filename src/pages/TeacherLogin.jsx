@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
+import { theme, cardStyle, btnPrimary, inputStyle, pageStyle } from "../theme";
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState("");
@@ -36,30 +37,35 @@ export default function TeacherLogin() {
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto", fontFamily: "sans-serif" }}>
-      <h2>เข้าสู่ระบบสำหรับครู</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          placeholder="อีเมล"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
-        />
-        <input
-          type="password"
-          placeholder="รหัสผ่าน"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ display: "block", width: "100%", marginBottom: 12, padding: 8 }}
-        />
-        {error && <p style={{ color: "red" }}>{error}</p>}
-        <button type="submit" disabled={busy} style={{ padding: "8px 16px" }}>
-          {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-        </button>
-      </form>
+    <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ ...cardStyle, width: 360 }}>
+        <h2 style={{ margin: "0 0 4px", fontSize: 22 }}>เข้าสู่ระบบสำหรับครู</h2>
+        <p style={{ margin: "0 0 20px", color: theme.muted, fontSize: 14 }}>
+          ระบบจัดการการเรียนการสอน
+        </p>
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+          <input
+            type="email"
+            placeholder="อีเมล"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={inputStyle}
+          />
+          <input
+            type="password"
+            placeholder="รหัสผ่าน"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={inputStyle}
+          />
+          {error && <p style={{ color: "#B91C1C", fontSize: 13, margin: 0 }}>{error}</p>}
+          <button type="submit" disabled={busy} style={{ ...btnPrimary, width: "100%" }}>
+            {busy ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

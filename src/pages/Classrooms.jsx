@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   collection,
   doc,
@@ -12,14 +13,15 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { Link } from "react-router-dom";
-import { deleteClassroomCascade } from "../deleteUtils";
+import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, inputStyle } from "../theme";
 
 export default function Classrooms() {
   const [rooms, setRooms] = useState([]);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "classrooms"), orderBy("name"));
@@ -30,6 +32,7 @@ export default function Classrooms() {
     );
     return unsub;
   }, []);
+
   const passwordInUse = async (pw, exceptRoomId) => {
     const snap = await getDocs(
       query(collection(db, "classroomSecrets"), where("password", "==", pw))
@@ -37,7 +40,7 @@ export default function Classrooms() {
     return snap.docs.some((d) => d.id !== exceptRoomId);
   };
 
-    const addRoom = async (e) => {
+  const addRoom = async (e) => {
     e.preventDefault();
     setError("");
     if (password.length < 6) {
@@ -61,6 +64,12 @@ export default function Classrooms() {
     }
   };
 
+  const renameRoom = async (room) => {
+    const newName = window.prompt("ชื่อห้องเรียนใหม่:", room.name);
+    if (!newName || !newName.trim()) return;
+    await updateDoc(doc(db, "classrooms", room.id), { name: newName.trim() });
+  };
+
   const changePassword = async (room) => {
     const newPass = window.prompt(`รหัสผ่านใหม่ของห้อง ${room.name} (อย่างน้อย 6 ตัว):`);
     if (!newPass) return;
@@ -80,7 +89,12 @@ export default function Classrooms() {
     }
   };
 
-  const [deletingId, setDeletingId] = useState(null);
+  const archiveRoom = async (room) => {
+    await updateDoc(doc(db, "classrooms", room.id), { archived: true });
+  };
+  const unarchiveRoom = async (room) => {
+    await updateDoc(doc(db, "classrooms", room.id), { archived: false });
+  };
 
   const deleteRoom = async (room) => {
     if (
@@ -91,65 +105,82 @@ export default function Classrooms() {
       return;
     setDeletingId(room.id);
     try {
+      const { deleteClassroomCascade } = await import("../deleteUtils");
       await deleteClassroomCascade(room.id);
-    } catch (err) {
-      console.error("delete classroom error:", err);
-      alert("ลบห้องเรียนไม่สำเร็จ: " + err.message);
+    } catch {
+      alert("ลบห้องเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setDeletingId(null);
     }
   };
 
+  const visibleRooms = rooms.filter((r) => !!r.archived === showArchived);
+
   return (
     <div>
-      <h3>ห้องเรียนของฉัน</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 20 }}>ห้องเรียนของฉัน</h2>
+        <button style={btnSecondary} onClick={() => setShowArchived(!showArchived)}>
+          {showArchived ? "ดูห้องที่ใช้งานอยู่" : "ห้องที่เก็บถาวร"}
+        </button>
+      </div>
 
-      <form onSubmit={addRoom} style={{ marginBottom: 20 }}>
-        <input
-          placeholder="ชื่อห้อง เช่น ม.1/1"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          style={{ padding: 8, marginRight: 8 }}
-        />
-        <input
-          placeholder="รหัสผ่านห้อง"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{ padding: 8, marginRight: 8 }}
-        />
-        <button type="submit">เพิ่มห้องเรียน</button>
-      </form>
+      {!showArchived && (
+        <form onSubmit={addRoom} style={{ ...cardStyle, marginBottom: 20, display: "flex", flexWrap: "wrap", gap: 10 }}>
+          <input
+            placeholder="ชื่อห้อง เช่น ม.1/1"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+          />
+          <input
+            placeholder="รหัสผ่านห้อง"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+          />
+          <button type="submit" style={btnPrimary}>
+            เพิ่มห้องเรียน
+          </button>
+        </form>
+      )}
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: theme.danger }}>{error}</p>}
+      {visibleRooms.length === 0 && (
+        <p style={{ color: theme.muted }}>{showArchived ? "ไม่มีห้องที่เก็บถาวรไว้" : "ยังไม่มีห้องเรียน"}</p>
+      )}
 
-      {rooms.length === 0 && <p>ยังไม่มีห้องเรียน</p>}
-
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {rooms.map((room) => (
-          <li
-            key={room.id}
-            style={{ border: "1px solid #ccc", padding: 12, marginBottom: 8, borderRadius: 6 }}
-          >
-            <Link to={`/teacher/classroom/${room.id}`}>
-            <strong>{room.name}</strong>
+      <div style={{ display: "grid", gap: 12 }}>
+        {visibleRooms.map((room) => (
+          <div key={room.id} style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <Link to={`/teacher/classroom/${room.id}`} style={{ fontWeight: 700, fontSize: 16, color: theme.primary, textDecoration: "none" }}>
+              {room.name}
             </Link>
-            
-            <div style={{ marginTop: 8 }}>
-              <button onClick={() => renameRoom(room)}>แก้ไขชื่อ</button>{" "}
-              <button onClick={() => changePassword(room)}>เปลี่ยนรหัสผ่าน</button>{" "}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {!room.archived && (
+                <>
+                  <button style={btnSecondary} onClick={() => renameRoom(room)}>แก้ไขชื่อ</button>
+                  <button style={btnSecondary} onClick={() => changePassword(room)}>เปลี่ยนรหัสผ่าน</button>
+                </>
+              )}
+              {room.archived ? (
+                <button style={btnSecondary} onClick={() => unarchiveRoom(room)}>กู้คืน</button>
+              ) : (
+                <button style={btnSecondary} onClick={() => archiveRoom(room)}>เก็บเข้าคลัง</button>
+              )}
               <button
-  onClick={() => deleteRoom(room)}
-  disabled={deletingId === room.id}
-  style={{ color: "red" }}
->
-  {deletingId === room.id ? "กำลังลบ..." : "ลบห้อง"}
-</button>
+                style={btnDanger}
+                onClick={() => deleteRoom(room)}
+                disabled={deletingId === room.id}
+              >
+                {deletingId === room.id ? "กำลังลบ..." : "ลบห้อง"}
+              </button>
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
