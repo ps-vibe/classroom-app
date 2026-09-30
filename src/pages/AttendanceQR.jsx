@@ -90,6 +90,10 @@ export default function AttendanceQR() {
     setBusy(true);
     clearInterval(intervalRef.current);
     await updateDoc(sessionRef, { active: false });
+    await setDoc(
+      doc(db, "classrooms", classroomId, "attendanceLog", `${subjectId}_${date}_${period}`),
+      { subjectId, date, period }
+    );
 
     const [studentSnap, scanSnap] = await Promise.all([
       getDocs(collection(db, "classrooms", classroomId, "students")),

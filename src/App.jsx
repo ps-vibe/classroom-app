@@ -14,6 +14,7 @@ import StudentHome from "./pages/StudentHome";
 import Landing from "./pages/Landing";
 import AttendanceQR from "./pages/AttendanceQR";
 import StudentScan from "./pages/StudentScan";
+import AttendanceSummary from "./pages/AttendanceSummary";
 
 export default function App() {
   return (
@@ -34,6 +35,10 @@ export default function App() {
         <Route
           path="classroom/:classroomId/subject/:subjectId/attendance"
           element={<AttendanceEntry />}
+        />
+        <Route
+           path="classroom/:classroomId/subject/:subjectId/attendance/summary"
+           element={<AttendanceSummary />}
         />
         <Route
           path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"

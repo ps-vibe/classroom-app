@@ -141,6 +141,10 @@ export default function AttendanceEntry() {
         });
         await batch.commit();
       }
+            await setDoc(
+        doc(db, "classrooms", classroomId, "attendanceLog", `${subjectId}_${date}_${period}`),
+        { subjectId, date, period }
+      );
       setDirty(new Set());
       setMessage(`บันทึกแล้ว ${codes.length} รายการ`);
     } catch {
@@ -164,6 +168,11 @@ export default function AttendanceEntry() {
       <p>
   <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/qr`}>
     เช็คคาบเรียนด้วย QR
+  </Link>
+</p>
+<p>
+  <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/summary`}>
+    สรุปการเข้าเรียนรายคน
   </Link>
 </p>
 
