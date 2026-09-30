@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  addDoc,
-  collection,
-  deleteDoc,
   doc,
   getDoc,
+  addDoc,
+  collection,
   onSnapshot,
   orderBy,
   query,
@@ -15,6 +14,7 @@ import {
 import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { deleteAssignmentCascade } from "../deleteUtils";
+import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, inputStyle } from "../theme";
 
 const emptyForm = { title: "", type: "worksheet", maxScore: "", dueDate: "" };
 
@@ -24,16 +24,10 @@ export default function SubjectDetail() {
   const [assignments, setAssignments] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
 
-  const colRef = collection(
-    db,
-    "classrooms",
-    classroomId,
-    "subjects",
-    subjectId,
-    "assignments"
-  );
+  const colRef = collection(db, "classrooms", classroomId, "subjects", subjectId, "assignments");
 
   useEffect(() => {
     getDoc(doc(db, "classrooms", classroomId, "subjects", subjectId)).then((snap) => {
@@ -42,20 +36,17 @@ export default function SubjectDetail() {
   }, [classroomId, subjectId]);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "classrooms", classroomId, "subjects", subjectId, "assignments"),
-      orderBy("dueDate")
-    );
+    const q = query(colRef, orderBy("dueDate"));
     const unsub = onSnapshot(
       q,
       (snap) => setAssignments(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
       () => setError("โหลดข้อมูลใบงานไม่สำเร็จ")
     );
     return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classroomId, subjectId]);
 
   const change = (field) => (e) => setForm({ ...form, [field]: e.target.value });
-
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
@@ -69,12 +60,7 @@ export default function SubjectDetail() {
       setError("คะแนนเต็มต้องมากกว่า 0");
       return;
     }
-    const data = {
-      title: form.title.trim(),
-      type: form.type,
-      maxScore,
-      dueDate: form.dueDate,
-    };
+    const data = { title: form.title.trim(), type: form.type, maxScore, dueDate: form.dueDate };
     try {
       if (editingId) {
         await updateDoc(
@@ -92,16 +78,9 @@ export default function SubjectDetail() {
 
   const startEdit = (a) => {
     setEditingId(a.id);
-    setForm({
-      title: a.title,
-      type: a.type,
-      maxScore: String(a.maxScore),
-      dueDate: a.dueDate,
-    });
+    setForm({ title: a.title, type: a.type, maxScore: String(a.maxScore), dueDate: a.dueDate });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  const [deletingId, setDeletingId] = useState(null);
 
   const remove = async (a) => {
     if (!window.confirm(`ลบ "${a.title}" ใช่หรือไม่? คะแนนของงานนี้จะถูกลบไปด้วย`)) return;
@@ -118,82 +97,67 @@ export default function SubjectDetail() {
 
   return (
     <div>
-      <Link to={`/teacher/classroom/${classroomId}`}>&larr; กลับไปหน้าห้องเรียน</Link>
-      <h3>วิชา {subject ? subject.name : "..."}</h3>
-      <p>
-  <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`}>
-    เช็คคาบเรียน
-  </Link>
-</p>
+      <Link to={`/teacher/classroom/${classroomId}`} style={{ color: theme.accent, fontSize: 14 }}>
+        &larr; กลับไปหน้าห้องเรียน
+      </Link>
+      <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>วิชา {subject ? subject.name : "..."}</h2>
+      <p style={{ margin: "0 0 20px" }}>
+        <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`} style={{ color: theme.accent }}>
+          เช็คคาบเรียน
+        </Link>
+      </p>
 
-      <h4>{editingId ? "แก้ไขใบงาน" : "เพิ่มใบงาน"}</h4>
-      <form onSubmit={submit} style={{ marginBottom: 20, display: "grid", gap: 8, maxWidth: 420 }}>
-        <input
-          placeholder="ชื่องาน เช่น ใบงานที่ 1"
-          value={form.title}
-          onChange={change("title")}
-          required
-          style={{ padding: 8 }}
-        />
-        <select value={form.type} onChange={change("type")} style={{ padding: 8 }}>
-          {ASSIGNMENT_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min="0"
-          step="any"
-          placeholder="คะแนนเต็ม"
-          value={form.maxScore}
-          onChange={change("maxScore")}
-          required
-          style={{ padding: 8 }}
-        />
-        <label>
-          วันกำหนดส่ง{" "}
-          <input type="date" value={form.dueDate} onChange={change("dueDate")} required />
-        </label>
-        <div>
-          <button type="submit">{editingId ? "บันทึกการแก้ไข" : "เพิ่มใบงาน"}</button>{" "}
-          {editingId && (
-            <button type="button" onClick={resetForm}>
-              ยกเลิก
-            </button>
-          )}
-        </div>
-      </form>
+      <div style={{ ...cardStyle, marginBottom: 20 }}>
+        <h3 style={{ marginTop: 0, fontSize: 15 }}>{editingId ? "แก้ไขใบงาน" : "เพิ่มใบงาน"}</h3>
+        <form onSubmit={submit} style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+          <input placeholder="ชื่องาน เช่น ใบงานที่ 1" value={form.title} onChange={change("title")} required style={inputStyle} />
+          <select value={form.type} onChange={change("type")} style={inputStyle}>
+            {ASSIGNMENT_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <input type="number" min="0" step="any" placeholder="คะแนนเต็ม" value={form.maxScore} onChange={change("maxScore")} required style={inputStyle} />
+          <label style={{ fontSize: 14 }}>
+            วันกำหนดส่ง <input type="date" value={form.dueDate} onChange={change("dueDate")} required style={{ ...inputStyle, marginLeft: 6 }} />
+          </label>
+          <div>
+            <button type="submit" style={btnPrimary}>{editingId ? "บันทึกการแก้ไข" : "เพิ่มใบงาน"}</button>{" "}
+            {editingId && <button type="button" style={btnSecondary} onClick={resetForm}>ยกเลิก</button>}
+          </div>
+        </form>
+      </div>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {assignments.length === 0 && <p>ยังไม่มีใบงานในวิชานี้</p>}
+      {error && <p style={{ color: theme.danger }}>{error}</p>}
+      {assignments.length === 0 && <p style={{ color: theme.muted }}>ยังไม่มีใบงานในวิชานี้</p>}
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <div style={{ display: "grid", gap: 12 }}>
         {assignments.map((a) => (
-          <li
-            key={a.id}
-            style={{ border: "1px solid #ccc", padding: 12, marginBottom: 8, borderRadius: 6 }}
-          >
-            <strong>{a.title}</strong> <span>[{typeLabel(a.type)}]</span>
-            <div>
-              คะแนนเต็ม {a.maxScore} | กำหนดส่ง {a.dueDate}
+          <div key={a.id} style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>
+                  {a.title} <span style={{ color: theme.muted, fontWeight: 400 }}>[{typeLabel(a.type)}]</span>
+                </div>
+                <div style={{ color: theme.muted, fontSize: 13, marginTop: 2 }}>
+                  คะแนนเต็ม {a.maxScore} | กำหนดส่ง {a.dueDate}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Link
+                  to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/scores`}
+                  style={{ ...btnPrimary, textDecoration: "none", display: "inline-block" }}
+                >
+                  กรอกคะแนน
+                </Link>
+                <button style={btnSecondary} onClick={() => startEdit(a)}>แก้ไข</button>
+                <button style={btnDanger} onClick={() => remove(a)} disabled={deletingId === a.id}>
+                  {deletingId === a.id ? "กำลังลบ..." : "ลบ"}
+                </button>
+              </div>
             </div>
-            <div style={{ marginTop: 8 }}>
-              <Link
-  to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/scores`}
-  style={{ marginRight: 8 }}
->
-  กรอกคะแนน
-</Link>
-              <button onClick={() => startEdit(a)}>แก้ไข</button>{" "}
-<button onClick={() => remove(a)} disabled={deletingId === a.id} style={{ color: "red" }}>
-  {deletingId === a.id ? "กำลังลบ..." : "ลบ"}
-</button>
-            </div>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

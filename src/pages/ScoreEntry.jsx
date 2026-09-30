@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
+import { theme, cardStyle, btnPrimary, inputStyle } from "../theme";
 
 const FLAGS = [
   { key: "late", symbol: "L", title: "ส่งช้า" },
@@ -37,25 +38,15 @@ export default function ScoreEntry() {
     async function load() {
       try {
         const [aSnap, sSnap, scSnap] = await Promise.all([
-          getDoc(
-            doc(db, "classrooms", classroomId, "subjects", subjectId, "assignments", assignmentId)
-          ),
+          getDoc(doc(db, "classrooms", classroomId, "subjects", subjectId, "assignments", assignmentId)),
           getDocs(query(collection(db, "classrooms", classroomId, "students"), orderBy("no"))),
-          getDocs(
-            query(
-              collection(db, "classrooms", classroomId, "scores"),
-              where("assignmentId", "==", assignmentId)
-            )
-          ),
+          getDocs(query(collection(db, "classrooms", classroomId, "scores"), where("assignmentId", "==", assignmentId))),
         ]);
         if (aSnap.exists()) setAssignment(aSnap.data());
         const list = sSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setStudents(list);
-
         const initial = {};
-        list.forEach((s) => {
-          initial[s.id] = { ...emptyRow };
-        });
+        list.forEach((s) => (initial[s.id] = { ...emptyRow }));
         scSnap.docs.forEach((d) => {
           const v = d.data();
           initial[v.studentCode] = {
@@ -122,8 +113,7 @@ export default function ScoreEntry() {
         codes.slice(i, i + 400).forEach((code) => {
           const r = rows[code];
           const ref = doc(db, "classrooms", classroomId, "scores", `${assignmentId}_${code}`);
-          const empty =
-            r.score === "" && !r.late && !r.accuracy && !r.clean && r.retake === "";
+          const empty = r.score === "" && !r.late && !r.accuracy && !r.clean && r.retake === "";
           if (empty) {
             batch.delete(ref);
           } else {
@@ -151,40 +141,37 @@ export default function ScoreEntry() {
     }
   };
 
-  const cell = { border: "1px solid #ccc", padding: 8 };
+  const cell = { border: `1px solid ${theme.border}`, padding: 10, textAlign: "left" };
 
   return (
     <div>
-      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}`}>
+      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}`} style={{ color: theme.accent, fontSize: 14 }}>
         &larr; กลับไปหน้าวิชา
       </Link>
-      <h3>
-        {assignment.title} [{typeLabel(assignment.type)}]
-      </h3>
-      <p>
-        คะแนนเต็ม {max} | กำหนดส่ง {assignment.dueDate}
-      </p>
-      <p style={{ fontSize: 14 }}>
+      <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>
+        {assignment.title} <span style={{ color: theme.muted, fontWeight: 400, fontSize: 16 }}>[{typeLabel(assignment.type)}]</span>
+      </h2>
+      <p style={{ color: theme.muted, marginBottom: 8 }}>คะแนนเต็ม {max} | กำหนดส่ง {assignment.dueDate}</p>
+      <p style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>
         L = ส่งช้า &nbsp; % = ความถูกต้องสมบูรณ์ของงาน &nbsp; C = ความสะอาดและเป็นระเบียบเรียบร้อย
-        (กดปุ่มเพื่อระบุเหตุผลที่ไม่ได้คะแนนเต็ม)
       </p>
 
       {students.length === 0 ? (
-        <p>ห้องนี้ยังไม่มีนักเรียน ไปเพิ่มรายชื่อก่อนที่หน้าห้องเรียน</p>
+        <p style={{ color: theme.muted }}>ห้องนี้ยังไม่มีนักเรียน</p>
       ) : (
         <>
-          <div style={{ position: "sticky", top: 0, background: "white", padding: "8px 0" }}>
-            <button onClick={save} disabled={busy || dirty.size === 0}>
+          <div style={{ position: "sticky", top: 0, background: theme.bg, padding: "8px 0", zIndex: 1 }}>
+            <button style={btnPrimary} onClick={save} disabled={busy || dirty.size === 0}>
               {busy ? "กำลังบันทึก..." : `บันทึกคะแนน${dirty.size ? ` (${dirty.size} รายการที่แก้)` : ""}`}
             </button>
-            {error && <span style={{ color: "red", marginLeft: 12 }}>{error}</span>}
-            {message && <span style={{ color: "green", marginLeft: 12 }}>{message}</span>}
+            {error && <span style={{ color: theme.danger, marginLeft: 12 }}>{error}</span>}
+            {message && <span style={{ color: theme.success, marginLeft: 12 }}>{message}</span>}
           </div>
 
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ ...cardStyle, overflowX: "auto", padding: 0, marginTop: 12 }}>
             <table style={{ borderCollapse: "collapse", width: "100%" }}>
               <thead>
-                <tr>
+                <tr style={{ background: "#F9FAFB" }}>
                   <th style={cell}>เลขที่</th>
                   <th style={cell}>ชื่อ-นามสกุล</th>
                   <th style={cell}>คะแนน</th>
@@ -197,12 +184,9 @@ export default function ScoreEntry() {
                   const r = rows[s.id] || emptyRow;
                   const low = belowHalf(r.score);
                   return (
-                    <tr key={s.id} style={low ? { background: "#fff4f4" } : undefined}>
+                    <tr key={s.id} style={low ? { background: "#FEF2F2" } : undefined}>
                       <td style={cell}>{s.no}</td>
-                      <td style={cell}>
-                        {s.prefix}
-                        {s.firstName} {s.lastName}
-                      </td>
+                      <td style={cell}>{s.prefix}{s.firstName} {s.lastName}</td>
                       <td style={cell}>
                         <input
                           type="number"
@@ -211,7 +195,7 @@ export default function ScoreEntry() {
                           step="any"
                           value={r.score}
                           onChange={(e) => onScore(s.id, e.target.value)}
-                          style={{ width: 70, padding: 6 }}
+                          style={{ ...inputStyle, width: 70, padding: 6 }}
                         />{" "}
                         / {max}
                       </td>
@@ -224,14 +208,14 @@ export default function ScoreEntry() {
                             onClick={() => updateRow(s.id, { [f.key]: !r[f.key] })}
                             style={{
                               marginRight: 4,
-                              width: 36,
-                              padding: 6,
-                              fontWeight: "bold",
+                              width: 32,
+                              height: 32,
+                              fontWeight: 700,
                               cursor: "pointer",
-                              border: "1px solid #888",
-                              borderRadius: 4,
-                              background: r[f.key] ? "#d33" : "white",
-                              color: r[f.key] ? "white" : "#333",
+                              border: `1px solid ${theme.border}`,
+                              borderRadius: 8,
+                              background: r[f.key] ? theme.primary : "#fff",
+                              color: r[f.key] ? "#fff" : theme.text,
                             }}
                           >
                             {f.symbol}
@@ -249,7 +233,7 @@ export default function ScoreEntry() {
                               placeholder="คะแนนซ่อม"
                               value={r.retake}
                               onChange={(e) => updateRow(s.id, { retake: e.target.value })}
-                              style={{ width: 90, padding: 6 }}
+                              style={{ ...inputStyle, width: 90, padding: 6 }}
                             />
                           ) : (
                             "-"
