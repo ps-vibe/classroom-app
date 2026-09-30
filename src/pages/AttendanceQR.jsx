@@ -14,6 +14,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { theme, cardStyle, btnPrimary, btnSecondary, inputStyle } from "../theme";
 
 const LATE_MINUTES = 10;
 const ROTATE_MS = 15000;
@@ -151,46 +152,45 @@ export default function AttendanceQR() {
 
   useEffect(() => () => clearInterval(intervalRef.current), []);
 
-  return (
+    return (
     <div>
-      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`}>
+      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`} style={{ color: theme.accent, fontSize: 14 }}>
         &larr; กลับไปหน้าเช็คคาบเรียน
       </Link>
-      <h3>เช็คคาบเรียนด้วย QR</h3>
+      <h2 style={{ margin: "12px 0 20px", fontSize: 20 }}>เช็คคาบเรียนด้วย QR</h2>
 
       {!session?.active && (
-        <div style={{ marginBottom: 16 }}>
-          <label>
-            วันที่ <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>{" "}
-          <label>
+        <div style={{ ...cardStyle, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label style={{ fontSize: 14 }}>
+            วันที่ <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginLeft: 6 }} />
+          </label>
+          <label style={{ fontSize: 14 }}>
             คาบที่{" "}
-            <select value={period} onChange={(e) => setPeriod(Number(e.target.value))}>
+            <select value={period} onChange={(e) => setPeriod(Number(e.target.value))} style={{ ...inputStyle, marginLeft: 6 }}>
               {Array.from({ length: 10 }, (_, i) => i + 1).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
-          </label>{" "}
-          <button onClick={startRound} disabled={busy}>
-            เปิดรอบสแกน
-          </button>
+          </label>
+          <button style={btnPrimary} onClick={startRound} disabled={busy}>เปิดรอบสแกน</button>
         </div>
       )}
 
       {session?.active && (
-        <div style={{ textAlign: "center" }}>
-          <p>
+        <div style={{ ...cardStyle, textAlign: "center" }}>
+          <p style={{ fontWeight: 600 }}>
             สแกนแล้ว {scannedCount} / {totalStudents} คน | สายหลัง {LATE_MINUTES} นาที
           </p>
-          {qrImg && <img src={qrImg} alt="QR เช็คชื่อ" width={320} height={320} />}
-          <p style={{ color: "#666" }}>QR จะเปลี่ยนอัตโนมัติทุก 15 วินาที ห้ามปิดหน้านี้ระหว่างเช็คชื่อ</p>
-          <button onClick={closeRound} disabled={busy}>
+          {qrImg && <img src={qrImg} alt="QR เช็คชื่อ" width={280} height={280} style={{ borderRadius: 12 }} />}
+          <p style={{ color: theme.muted, fontSize: 13 }}>QR จะเปลี่ยนอัตโนมัติทุก 15 วินาที ห้ามปิดหน้านี้ระหว่างเช็คชื่อ</p>
+          <button style={btnPrimary} onClick={closeRound} disabled={busy}>
             {busy ? "กำลังบันทึก..." : "ปิดรอบและบันทึกผล"}
           </button>
         </div>
       )}
+    </div>
+  );
+}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db } from "../firebase";
+import { theme, cardStyle } from "../theme";
 
 export default function AttendanceSummary() {
   const { classroomId, subjectId } = useParams();
@@ -52,21 +53,25 @@ export default function AttendanceSummary() {
 
   if (loading) return <p>กำลังโหลด...</p>;
 
+    const cell = { border: `1px solid ${theme.border}`, padding: 10, textAlign: "left" };
+
+  if (loading) return <p>กำลังโหลด...</p>;
+
   return (
     <div>
-      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`}>
+      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`} style={{ color: theme.accent, fontSize: 14 }}>
         &larr; กลับไปหน้าเช็คคาบเรียน
       </Link>
-      <h3>สรุปการเข้าเรียน วิชา {subject?.name}</h3>
-      <p>เช็คคาบเรียนไปแล้วทั้งหมด {totalSessions} คาบ</p>
+      <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>สรุปการเข้าเรียน วิชา {subject?.name}</h2>
+      <p style={{ color: theme.muted, marginBottom: 16 }}>เช็คคาบเรียนไปแล้วทั้งหมด {totalSessions} คาบ</p>
 
       {totalSessions === 0 ? (
-        <p>ยังไม่เคยเช็คคาบเรียนของวิชานี้เลย</p>
+        <p style={{ color: theme.muted }}>ยังไม่เคยเช็คคาบเรียนของวิชานี้เลย</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ ...cardStyle, overflowX: "auto", padding: 0 }}>
           <table style={{ borderCollapse: "collapse", width: "100%" }}>
             <thead>
-              <tr>
+              <tr style={{ background: "#F9FAFB" }}>
                 <th style={cell}>เลขที่</th>
                 <th style={cell}>ชื่อ-นามสกุล</th>
                 <th style={cell}>สาย</th>
@@ -77,24 +82,22 @@ export default function AttendanceSummary() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} style={r.percent < 80 ? { background: "#fff4f4" } : undefined}>
+                <tr key={r.id} style={r.percent < 80 ? { background: "#FEF2F2" } : undefined}>
                   <td style={cell}>{r.no}</td>
-                  <td style={cell}>
-                    {r.prefix}
-                    {r.firstName} {r.lastName}
-                  </td>
+                  <td style={cell}>{r.prefix}{r.firstName} {r.lastName}</td>
                   <td style={cell}>{r.late}</td>
                   <td style={cell}>{r.leave}</td>
                   <td style={cell}>{r.absent}</td>
-                  <td style={cell}>
-                    {r.present}/{totalSessions} ({r.percent}%)
-                  </td>
+                  <td style={cell}>{r.present}/{totalSessions} ({r.percent}%)</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+    </div>
+  );
+}
     </div>
   );
 }

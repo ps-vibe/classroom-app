@@ -13,6 +13,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { theme, cardStyle, btnPrimary, btnSecondary, inputStyle } from "../theme";
 
 const STATUS = [
   { value: "present", label: "มา" },
@@ -42,7 +43,6 @@ export default function AttendanceEntry() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // โหลดชื่อวิชาและรายชื่อนักเรียน (ครั้งเดียว)
   useEffect(() => {
     getDoc(doc(db, "classrooms", classroomId, "subjects", subjectId)).then((snap) => {
       if (snap.exists()) setSubject(snap.data());
@@ -55,7 +55,6 @@ export default function AttendanceEntry() {
       .catch(() => setError("โหลดรายชื่อนักเรียนไม่สำเร็จ"));
   }, [classroomId, subjectId]);
 
-  // โหลดข้อมูลเช็คชื่อของ วันที่ + คาบ ที่เลือก
   useEffect(() => {
     if (!studentsLoaded || !date) return;
     let cancelled = false;
@@ -71,9 +70,7 @@ export default function AttendanceEntry() {
       .then((snap) => {
         if (cancelled) return;
         const initial = {};
-        students.forEach((s) => {
-          initial[s.id] = { ...emptyRow };
-        });
+        students.forEach((s) => (initial[s.id] = { ...emptyRow }));
         snap.docs.forEach((d) => {
           const v = d.data();
           initial[v.studentCode] = { status: v.status, reason: v.reason || "" };
@@ -92,20 +89,14 @@ export default function AttendanceEntry() {
 
   const confirmLeave = () =>
     dirty.size === 0 || window.confirm("มีข้อมูลที่ยังไม่ได้บันทึก ต้องการเปลี่ยนวันที่/คาบโดยไม่บันทึกหรือไม่?");
-
-  const changeDate = (e) => {
-    if (confirmLeave()) setDate(e.target.value);
-  };
-  const changePeriod = (e) => {
-    if (confirmLeave()) setPeriod(Number(e.target.value));
-  };
+  const changeDate = (e) => confirmLeave() && setDate(e.target.value);
+  const changePeriod = (e) => confirmLeave() && setPeriod(Number(e.target.value));
 
   const updateRow = (code, patch) => {
     setRows((prev) => ({ ...prev, [code]: { ...prev[code], ...patch } }));
     setDirty((prev) => new Set(prev).add(code));
     setMessage("");
   };
-
   const setStatus = (code, status) =>
     updateRow(code, status === "present" ? { status, reason: "" } : { status });
 
@@ -119,36 +110,25 @@ export default function AttendanceEntry() {
         const batch = writeBatch(db);
         codes.slice(i, i + 400).forEach((code) => {
           const r = rows[code];
-          const ref = doc(
-            db,
-            "classrooms",
-            classroomId,
-            "attendance",
-            `${subjectId}_${date}_${period}_${code}`
-          );
+          const ref = doc(db, "classrooms", classroomId, "attendance", `${subjectId}_${date}_${period}_${code}`);
           if (r.status === "present") {
             batch.delete(ref);
           } else {
             batch.set(ref, {
-              subjectId,
-              date,
-              period,
-              studentCode: code,
-              status: r.status,
-              reason: r.reason.trim(),
-              updatedAt: serverTimestamp(),
+              subjectId, date, period, studentCode: code,
+              status: r.status, reason: r.reason.trim(), updatedAt: serverTimestamp(),
             });
           }
         });
         await batch.commit();
       }
-            await setDoc(
+      await setDoc(
         doc(db, "classrooms", classroomId, "attendanceLog", `${subjectId}_${date}_${period}`),
         { subjectId, date, period }
       );
       setDirty(new Set());
       setMessage(`บันทึกแล้ว ${codes.length} รายการ`);
-      } catch (err) {
+    } catch (err) {
       console.error("save attendance error:", err);
       setError("บันทึกไม่สำเร็จ: " + err.message);
     } finally {
@@ -156,69 +136,60 @@ export default function AttendanceEntry() {
     }
   };
 
-  const count = (status) =>
-    students.filter((s) => (rows[s.id] || emptyRow).status === status).length;
-
-  const cell = { border: "1px solid #ccc", padding: 8 };
+  const count = (status) => students.filter((s) => (rows[s.id] || emptyRow).status === status).length;
+  const cell = { border: `1px solid ${theme.border}`, padding: 10, textAlign: "left" };
 
   return (
     <div>
-      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}`}>
+      <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}`} style={{ color: theme.accent, fontSize: 14 }}>
         &larr; กลับไปหน้าวิชา
       </Link>
-      <h3>เช็คคาบเรียน วิชา {subject ? subject.name : "..."}</h3>
-      <p>
-  <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/qr`}>
-    เช็คคาบเรียนด้วย QR
-  </Link>
-</p>
-<p>
-  <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/summary`}>
-    สรุปการเข้าเรียนรายคน
-  </Link>
-</p>
+      <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>เช็คคาบเรียน วิชา {subject ? subject.name : "..."}</h2>
+      <p style={{ margin: "0 0 16px", display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/qr`} style={{ color: theme.accent }}>
+          เช็คคาบเรียนด้วย QR
+        </Link>
+        <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance/summary`} style={{ color: theme.accent }}>
+          สรุปการเข้าเรียนรายคน
+        </Link>
+      </p>
 
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
-        <label>
-          วันที่ <input type="date" value={date} onChange={changeDate} />
+      <div style={{ ...cardStyle, marginBottom: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <label style={{ fontSize: 14 }}>
+          วันที่ <input type="date" value={date} onChange={changeDate} style={{ ...inputStyle, marginLeft: 6 }} />
         </label>
-        <label>
+        <label style={{ fontSize: 14 }}>
           คาบที่{" "}
-          <select value={period} onChange={changePeriod}>
+          <select value={period} onChange={changePeriod} style={{ ...inputStyle, marginLeft: 6 }}>
             {Array.from({ length: 10 }, (_, i) => i + 1).map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
+              <option key={p} value={p}>{p}</option>
             ))}
           </select>
         </label>
       </div>
 
-      {studentsLoaded && students.length === 0 && (
-        <p>ห้องนี้ยังไม่มีนักเรียน ไปเพิ่มรายชื่อก่อนที่หน้าห้องเรียน</p>
-      )}
+      {studentsLoaded && students.length === 0 && <p style={{ color: theme.muted }}>ห้องนี้ยังไม่มีนักเรียน</p>}
 
       {students.length > 0 && (
         <>
-          <div style={{ position: "sticky", top: 0, background: "white", padding: "8px 0" }}>
-            <button onClick={save} disabled={busy || sessionLoading || dirty.size === 0}>
+          <div style={{ position: "sticky", top: 0, background: theme.bg, padding: "8px 0", zIndex: 1 }}>
+            <button style={btnPrimary} onClick={save} disabled={busy || sessionLoading || dirty.size === 0}>
               {busy ? "กำลังบันทึก..." : `บันทึก${dirty.size ? ` (${dirty.size} รายการที่แก้)` : ""}`}
             </button>{" "}
-            <span>
-              สาย {count("late")} | ลา {count("leave")} | ขาด {count("absent")} | รวม{" "}
-              {students.length} คน
+            <span style={{ fontSize: 14 }}>
+              สาย {count("late")} | ลา {count("leave")} | ขาด {count("absent")} | รวม {students.length} คน
             </span>
-            {error && <span style={{ color: "red", marginLeft: 12 }}>{error}</span>}
-            {message && <span style={{ color: "green", marginLeft: 12 }}>{message}</span>}
+            {error && <div style={{ color: theme.danger, marginTop: 6 }}>{error}</div>}
+            {message && <div style={{ color: theme.success, marginTop: 6 }}>{message}</div>}
           </div>
 
           {sessionLoading ? (
             <p>กำลังโหลด...</p>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div style={{ ...cardStyle, overflowX: "auto", padding: 0, marginTop: 12 }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
                 <thead>
-                  <tr>
+                  <tr style={{ background: "#F9FAFB" }}>
                     <th style={cell}>เลขที่</th>
                     <th style={cell}>ชื่อ-นามสกุล</th>
                     <th style={cell}>สถานะ</th>
@@ -229,24 +200,13 @@ export default function AttendanceEntry() {
                   {students.map((s) => {
                     const r = rows[s.id] || emptyRow;
                     return (
-                      <tr
-                        key={s.id}
-                        style={r.status !== "present" ? { background: "#fff8e6" } : undefined}
-                      >
+                      <tr key={s.id} style={r.status !== "present" ? { background: "#FFFBEB" } : undefined}>
                         <td style={cell}>{s.no}</td>
-                        <td style={cell}>
-                          {s.prefix}
-                          {s.firstName} {s.lastName}
-                        </td>
+                        <td style={cell}>{s.prefix}{s.firstName} {s.lastName}</td>
                         <td style={cell}>
                           {STATUS.map((st) => (
-                            <label key={st.value} style={{ marginRight: 10, whiteSpace: "nowrap" }}>
-                              <input
-                                type="radio"
-                                name={`att-${s.id}`}
-                                checked={r.status === st.value}
-                                onChange={() => setStatus(s.id, st.value)}
-                              />{" "}
+                            <label key={st.value} style={{ marginRight: 10, whiteSpace: "nowrap", fontSize: 14 }}>
+                              <input type="radio" name={`att-${s.id}`} checked={r.status === st.value} onChange={() => setStatus(s.id, st.value)} />{" "}
                               {st.label}
                             </label>
                           ))}
@@ -257,7 +217,7 @@ export default function AttendanceEntry() {
                             value={r.reason}
                             disabled={r.status === "present"}
                             onChange={(e) => updateRow(s.id, { reason: e.target.value })}
-                            style={{ padding: 6, width: "100%", minWidth: 140, boxSizing: "border-box" }}
+                            style={{ ...inputStyle, width: "100%", minWidth: 140, boxSizing: "border-box" }}
                           />
                         </td>
                       </tr>
