@@ -14,7 +14,7 @@ import {
 import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { deleteAssignmentCascade } from "../deleteUtils";
-import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, inputStyle } from "../theme";
+import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, btnTeal, inputStyle } from "../theme";
 
 const emptyForm = { title: "", type: "worksheet", maxScore: "", dueDate: "" };
 
@@ -145,7 +145,7 @@ export default function SubjectDetail() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <Link
                   to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/scores`}
-                  style={{ ...btnPrimary, textDecoration: "none", display: "inline-block" }}
+                  style={{ ...btnTeal, textDecoration: "none", display: "inline-block" }}
                 >
                   กรอกคะแนน
                 </Link>

@@ -9,7 +9,9 @@ export const theme = {
   primaryHover: "#16304D",
   danger: "#B91C1C",
   dangerBg: "#FEF2F2",
-  accent: "#2F5D8A",
+  accent: "#4B5563",
+  teal: "#0D9488",
+  tealHover: "#0F766E",
   success: "#166534",
   successBg: "#F0FDF4",
   radius: 14,
@@ -20,7 +22,7 @@ export const cardStyle = {
   borderRadius: theme.radius,
   border: `1px solid ${theme.border}`,
   padding: "20px",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+  boxShadow: "none",
 };
 
 export const pageStyle = {
@@ -60,6 +62,17 @@ export const btnDanger = {
   padding: "8px 14px",
   fontWeight: 600,
   fontSize: 13,
+  cursor: "pointer",
+};
+
+export const btnTeal = {
+  background: theme.teal,
+  color: "#fff",
+  border: "none",
+  borderRadius: 10,
+  padding: "10px 16px",
+  fontWeight: 700,
+  fontSize: 14,
   cursor: "pointer",
 };
 

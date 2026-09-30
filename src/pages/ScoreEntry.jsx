@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
-import { theme, cardStyle, btnPrimary, inputStyle } from "../theme";
+import { theme, cardStyle, btnPrimary, btnTeal, inputStyle } from "../theme";
 
 const FLAGS = [
   { key: "late", symbol: "L", title: "ส่งช้า" },
@@ -161,7 +161,7 @@ export default function ScoreEntry() {
       ) : (
         <>
           <div style={{ position: "sticky", top: 0, background: theme.bg, padding: "8px 0", zIndex: 1 }}>
-            <button style={btnPrimary} onClick={save} disabled={busy || dirty.size === 0}>
+            <button style={btnTeal} onClick={save} disabled={busy || dirty.size === 0}>
               {busy ? "กำลังบันทึก..." : `บันทึกคะแนน${dirty.size ? ` (${dirty.size} รายการที่แก้)` : ""}`}
             </button>
             {error && <span style={{ color: theme.danger, marginLeft: 12 }}>{error}</span>}
@@ -214,7 +214,7 @@ export default function ScoreEntry() {
                               cursor: "pointer",
                               border: `1px solid ${theme.border}`,
                               borderRadius: 8,
-                              background: r[f.key] ? theme.primary : "#fff",
+                              background: r[f.key] ? theme.teal : "#fff",
                               color: r[f.key] ? "#fff" : theme.text,
                             }}
                           >
