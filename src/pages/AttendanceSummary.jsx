@@ -49,11 +49,7 @@ export default function AttendanceSummary() {
     load();
   }, [classroomId, subjectId]);
 
-  const cell = { border: "1px solid #ccc", padding: 8 };
-
-  if (loading) return <p>กำลังโหลด...</p>;
-
-    const cell = { border: `1px solid ${theme.border}`, padding: 10, textAlign: "left" };
+  const cell = { border: `1px solid ${theme.border}`, padding: 10, textAlign: "left" };
 
   if (loading) return <p>กำลังโหลด...</p>;
 
@@ -95,9 +91,6 @@ export default function AttendanceSummary() {
           </table>
         </div>
       )}
-    </div>
-  );
-}
     </div>
   );
 }
