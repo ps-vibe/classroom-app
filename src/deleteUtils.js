@@ -51,7 +51,7 @@ export async function deleteStudentCascade(classroomId, studentCode) {
   await deleteDoc(doc(db, "classrooms", classroomId, "students", studentCode));
 }
 
-// ลบห้องเรียนทั้งห้อง พร้อมทุกอย่างข้างใน
+// ลบห้องเรียนทั้งห้อง การเช็คชื่อ พร้อมทุกอย่างข้างใน
 export async function deleteClassroomCascade(classroomId) {
   const subjSnap = await getDocs(collection(db, "classrooms", classroomId, "subjects"));
   for (const subjDoc of subjSnap.docs) {
@@ -61,6 +61,9 @@ export async function deleteClassroomCascade(classroomId) {
   await deleteWhole(collection(db, "classrooms", classroomId, "students"));
   await deleteWhole(collection(db, "classrooms", classroomId, "scores"));
   await deleteWhole(collection(db, "classrooms", classroomId, "attendance"));
+  await deleteWhole(collection(db, "classrooms", classroomId, "attendanceLog"));
+  await deleteWhole(collection(db, "classrooms", classroomId, "attendanceScans"));
+  await deleteWhole(collection(db, "classrooms", classroomId, "attendanceSessions"));
   await deleteDoc(doc(db, "classroomSecrets", classroomId));
   await deleteDoc(doc(db, "classrooms", classroomId));
 }
