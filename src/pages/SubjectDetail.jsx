@@ -15,6 +15,9 @@ import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { deleteAssignmentCascade } from "../deleteUtils";
 import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, btnTeal, inputStyle } from "../theme";
+import { exportSubjectScores } from "../exportUtils";
+import { collection as fsCollection, getDocs, query as fsQuery } from "firebase/firestore";
+
 
 const emptyForm = { title: "", type: "worksheet", maxScore: "", dueDate: "" };
 
@@ -26,8 +29,31 @@ export default function SubjectDetail() {
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
-
   const colRef = collection(db, "classrooms", classroomId, "subjects", subjectId, "assignments");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const [studentSnap, scoreSnap] = await Promise.all([
+        getDocs(fsCollection(db, "classrooms", classroomId, "students")),
+        getDocs(fsQuery(fsCollection(db, "classrooms", classroomId, "scores"))),
+      ]);
+      const students = studentSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => a.no - b.no);
+      const scoreByKey = {};
+      scoreSnap.docs.forEach((d) => {
+        const v = d.data();
+        if (v.subjectId === subjectId) scoreByKey[`${v.assignmentId}_${v.studentCode}`] = v;
+      });
+      exportSubjectScores(subject?.name || "วิชา", students, assignments, scoreByKey);
+    } catch {
+      alert("ส่งออกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     getDoc(doc(db, "classrooms", classroomId, "subjects", subjectId)).then((snap) => {
@@ -100,7 +126,12 @@ export default function SubjectDetail() {
       <Link to={`/teacher/classroom/${classroomId}`} style={{ color: theme.accent, fontSize: 14 }}>
         &larr; กลับไปหน้าห้องเรียน
       </Link>
-      <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>วิชา {subject ? subject.name : "..."}</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>วิชา {subject ? subject.name : "..."}</h2>
+        <button style={btnSecondary} onClick={handleExport} disabled={exporting || assignments.length === 0}>
+          {exporting ? "กำลังสร้างไฟล์..." : "ดาวน์โหลดคะแนน (Excel)"}
+        </button>
+      </div>
       <p style={{ margin: "0 0 20px" }}>
         <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`} style={{ color: theme.accent }}>
           เช็คคาบเรียน

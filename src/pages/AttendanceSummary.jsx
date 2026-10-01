@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs, orderBy, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { theme, cardStyle } from "../theme";
+import { exportAttendanceSummary } from "../exportUtils";
 
 export default function AttendanceSummary() {
   const { classroomId, subjectId } = useParams();
@@ -59,7 +60,17 @@ export default function AttendanceSummary() {
         &larr; กลับไปหน้าเช็คคาบเรียน
       </Link>
       <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>สรุปการเข้าเรียน วิชา {subject?.name}</h2>
-      <p style={{ color: theme.muted, marginBottom: 16 }}>เช็คคาบเรียนไปแล้วทั้งหมด {totalSessions} คาบ</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        <p style={{ color: theme.muted, margin: 0 }}>เช็คคาบเรียนไปแล้วทั้งหมด {totalSessions} คาบ</p>
+        {totalSessions > 0 && (
+          <button
+            style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "#fff", cursor: "pointer" }}
+            onClick={() => exportAttendanceSummary(subject?.name || "วิชา", rows, totalSessions)}
+          >
+            ดาวน์โหลด Excel
+          </button>
+        )}
+      </div>
 
       {totalSessions === 0 ? (
         <p style={{ color: theme.muted }}>ยังไม่เคยเช็คคาบเรียนของวิชานี้เลย</p>

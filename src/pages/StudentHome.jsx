@@ -158,7 +158,17 @@ export default function StudentHome() {
       </div>
     );
 
-  const tabBtn = (key, label) => (
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const in3DaysStr = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+  const dueSoon = subjects
+    .flatMap((subj) =>
+      (assignmentsBySubject[subj.id] || [])
+        .filter((a) => !a.score && a.dueDate >= todayStr && a.dueDate <= in3DaysStr)
+        .map((a) => ({ ...a, subjectName: subj.name }))
+    )
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  
+    const tabBtn = (key, label) => (
     <button
       onClick={() => setTab(key)}
       style={{
@@ -218,6 +228,39 @@ export default function StudentHome() {
         </div>
 
         {error && <p style={{ color: "#C0392B" }}>{error}</p>}
+                {dueSoon.length > 0 && (
+          <div
+            style={{
+              ...cardStyle,
+              background: "#FFF6E9",
+              border: "1px solid #F3D9A8",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ fontWeight: 800, fontSize: 15, color: "#8A5A00", marginBottom: 8 }}>
+              ⏰ งานใกล้ถึงกำหนดส่ง ({dueSoon.length})
+            </div>
+            {dueSoon.map((a) => (
+              <div
+                key={a.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "6px 0",
+                  fontSize: 14,
+                  color: COLORS.text,
+                }}
+              >
+                <span>
+                  {a.subjectName} - {a.title}
+                </span>
+                <span style={{ color: "#8A5A00", fontWeight: 700, whiteSpace: "nowrap" }}>
+                  {a.dueDate === todayStr ? "วันนี้" : a.dueDate}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {tab === "scores" && (
           <>
