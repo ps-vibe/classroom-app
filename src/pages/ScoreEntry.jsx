@@ -16,8 +16,8 @@ import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { theme, cardStyle, btnPrimary, btnTeal, inputStyle } from "../theme";
 
 const FLAGS = [
-  { key: "late", symbol: "L", title: "ส่งงานช้ากว่ากำหนด" },
-  { key: "accuracy", symbol: "%", title: "ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70" },
+  { key: "late", symbol: "L", title: "ส่งงานช้ากว่ากำหนด ," },
+  { key: "accuracy", symbol: "%", title: "ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ70 ," },
   { key: "clean", symbol: "C", title: "งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด" },
 ];
 
@@ -153,7 +153,7 @@ export default function ScoreEntry() {
       </h2>
       <p style={{ color: theme.muted, marginBottom: 8 }}>คะแนนเต็ม {max} | กำหนดส่ง {assignment.dueDate}</p>
       <p style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>
-        L = ส่งช้า &nbsp; % = ความถูกต้องสมบูรณ์ของงาน &nbsp; C = ความสะอาดและเป็นระเบียบเรียบร้อย
+        L = ส่งงานช้ากว่ากำหนด , &nbsp; % = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp; C = งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด
       </p>
 
       {students.length === 0 ? (
