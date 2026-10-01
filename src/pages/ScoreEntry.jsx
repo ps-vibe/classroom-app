@@ -16,9 +16,9 @@ import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { theme, cardStyle, btnPrimary, btnTeal, inputStyle } from "../theme";
 
 const FLAGS = [
-  { key: "late", symbol: "L", title: "ส่งช้า" },
-  { key: "accuracy", symbol: "%", title: "ความถูกต้องสมบูรณ์ของงาน" },
-  { key: "clean", symbol: "C", title: "ความสะอาดและเป็นระเบียบเรียบร้อย" },
+  { key: "late", symbol: "L", title: "ส่งงานช้ากว่ากำหนด" },
+  { key: "accuracy", symbol: "%", title: "ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70" },
+  { key: "clean", symbol: "C", title: "งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด" },
 ];
 
 const emptyRow = { score: "", late: false, accuracy: false, clean: false, retake: "" };
