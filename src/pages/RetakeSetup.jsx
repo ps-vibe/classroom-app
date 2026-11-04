@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { collection, doc, getDoc, getDocs, orderBy, query, where, writeBatch, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, orderBy, query, where, writeBatch, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { theme, cardStyle, btnTeal, inputStyle } from "../theme";
 
@@ -34,6 +34,7 @@ export default function RetakeSetup() {
   const [attempts, setAttempts] = useState({});
   const [oldLabels, setOldLabels] = useState([]);
   const [newSets, setNewSets] = useState({});
+  const [newImages, setNewImages] = useState({});
   const [picked, setPicked] = useState(new Set());
   const [opensAt, setOpensAt] = useState("");
   const [closesAt, setClosesAt] = useState("");
@@ -88,6 +89,7 @@ export default function RetakeSetup() {
   async function onFiles(e) {
     setError("");
     const out = {};
+    const imgs = {};
     let letter = 0;
     for (const f of [...e.target.files]) {
       try {
@@ -97,12 +99,22 @@ export default function RetakeSetup() {
         const label = (j.set.variant || String.fromCharCode(65 + letter)).trim().toUpperCase().slice(0, 4);
         letter++;
         if (out[label]) return setError(`ชื่อชุด "${label}" ซ้ำกัน (${f.name})`);
+        Object.assign(imgs, j.imageData || {});
+        const need = [];
+        j.set.items.forEach((it) => {
+          (it.images || []).forEach((im) => im.imageId && need.push(im.imageId));
+          (it.choices || []).forEach((c) => c.image?.imageId && need.push(c.image.imageId));
+        });
+        if (need.some((id) => !imgs[id])) {
+          return setError(`${f.name}: ไฟล์ไม่มีข้อมูลรูป กรุณาส่งออกใหม่จากคลังข้อสอบ`);
+        }
         out[label] = { items: j.set.items, title: j.set.title };
       } catch (err) {
         return setError(`${f.name}: อ่านไฟล์ไม่ได้`);
       }
     }
     setNewSets(out);
+    setNewImages(imgs);
   }
 
   const toggle = (code) =>
@@ -128,6 +140,15 @@ export default function RetakeSetup() {
     }
     setBusy(true);
     try {
+            if (replacing) {
+        const ids = Object.keys(newImages);
+        for (let i = 0; i < ids.length; i++) {
+          setMessage(`กำลังอัปโหลดรูป ${i + 1}/${ids.length}...`);
+          await setDoc(doc(db, ...base, "retakeImages", ids[i]), { data: newImages[ids[i]] });
+        }
+        setMessage("");
+      }
+
       const batch = writeBatch(db);
       const openIso = new Date(opensAt).toISOString();
       const closeIso = new Date(closesAt).toISOString();
@@ -147,6 +168,7 @@ export default function RetakeSetup() {
       });
       await batch.commit();
       setNewSets({});
+      setNewImages({});
       setMessage(`แจกข้อสอบให้ ${targets.length} คน (ชุด ${labels.join("/")})`);
       await load();
     } catch (e) {

@@ -3,11 +3,13 @@ import { Link, useParams } from "react-router-dom";
 import { getAuth } from "firebase/auth";
 import { useAuth } from "../AuthContext";
 import RetakeMath from "../RetakeMath";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 const C = { bg: "#F7F3EC", card: "#fff", text: "#2B2B2B", muted: "#8A8A8A", border: "#EFE9DF", accent: "#3F7A6F", warn: "#B9631B", danger: "#C0392B" };
 const NUM = /^-?\d+(\.\d{1,2})?$/;
 const thaiToArabic = (s) => s.replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50));
-const imgSrc = (im) => im?.url || im?.src || im?.dataUrl || null;
+
 
 async function callApi(path, body) {
   const user = getAuth().currentUser;
@@ -22,9 +24,44 @@ async function callApi(path, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
-function Img({ im }) {
-  const src = imgSrc(im);
-  return src ? <img src={src} alt="" style={{ maxWidth: "100%", marginTop: 6 }} /> : null;
+const imgCache = new Map();
+function loadRetakeImage(classroomId, imageId) {
+  const key = `${classroomId}/${imageId}`;
+  if (!imgCache.has(key)) {
+    imgCache.set(
+      key,
+      getDoc(doc(db, "classrooms", classroomId, "retakeImages", imageId))
+        .then((s) => (s.exists() ? s.data().data : null))
+        .catch(() => { imgCache.delete(key); return null; })
+    );
+  }
+  return imgCache.get(key);
+}
+
+function Img({ im, classroomId }) {
+  const [src, setSrc] = useState(null);
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    if (im?.imageId) loadRetakeImage(classroomId, im.imageId).then((d) => alive && setSrc(d || "missing"));
+    return () => { alive = false; };
+  }, [im?.imageId, classroomId]);
+  if (!im) return null;
+  const style = { maxWidth: "100%", maxHeight: 320, display: "block", margin: "8px 0" };
+  if (im.imageId) {
+    if (!src) return <span style={{ color: C.muted }}>กำลังโหลดรูป...</span>;
+    if (src === "missing") return <span style={{ color: C.danger }}>โหลดรูปไม่สำเร็จ</span>;
+    return <img src={src} alt="" style={style} />;
+  }
+  if (im.fileId) {
+    const urls = [
+      `https://drive.google.com/thumbnail?id=${im.fileId}&sz=w800`,
+      `https://lh3.googleusercontent.com/d/${im.fileId}=w800`,
+    ];
+    if (stage >= urls.length) return <a href={im.url} target="_blank" rel="noreferrer">เปิดรูป</a>;
+    return <img src={urls[stage]} alt="" referrerPolicy="no-referrer" onError={() => setStage((s) => s + 1)} style={style} />;
+  }
+  return null;
 }
 
 const fmtTime = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -190,14 +227,14 @@ export default function StudentRetake() {
           <div key={it.no} style={card}>
             <div style={{ fontWeight: 700, marginBottom: 6 }}>ข้อ {it.no} <small style={{ color: C.muted, fontWeight: 400 }}>({it.score} คะแนน)</small></div>
             <div><RetakeMath text={it.stem} /></div>
-            {(it.images || []).map((im, k) => <Img key={k} im={im} />)}
+            {(it.images || []).map((im, k) => <Img key={k} im={im} classroomId={claims?.classroomId} />)}
 
             {it.type === "mcq" &&
               it.choices.map((c) => (
                 <label key={c.label} style={{ display: "block", padding: "8px 10px", margin: "6px 0", border: `1px solid ${val === c.label ? C.accent : C.border}`, borderRadius: 10, background: val === c.label ? "#EAF4F1" : "#fff", cursor: "pointer" }}>
                   <input type="radio" name={`q${it.no}`} checked={val === c.label} onChange={() => setAnswer(it.no, c.label)} />{" "}
                   <b>{c.label}.</b> <RetakeMath text={c.text} />
-                  <Img im={c.image} />
+                  <Img im={c.image} classroomId={claims?.classroomId} />
                 </label>
               ))}
 
