@@ -22,43 +22,22 @@ export default function App() {
   return (
     <Routes>
       <Route path="/teacher/login" element={<TeacherLogin />} />
-      <Route path="/teacher"  element={<ProtectedRoute>  <TeacherHome />
-          </ProtectedRoute> } >
-      <Route path="classroom/:classroomId/subject/:subjectId/attendance/qr"
-  element={<AttendanceQR />} />
-        
+      <Route path="/teacher" element={<ProtectedRoute><TeacherHome /></ProtectedRoute>}>
+        <Route path="classroom/:classroomId/subject/:subjectId/attendance/qr" element={<AttendanceQR />} />
         <Route index element={<Classrooms />} />
         <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
         <Route path="classroom/:classroomId/students" element={<Students />} />
-        <Route path="/student/retake/:examId" element={<StudentProtectedRoute><StudentRetake /></StudentProtectedRoute>} />
-        <Route
-          path="classroom/:classroomId/subject/:subjectId"
-          element={<SubjectDetail />}
-        />
-        <Route
-          path="classroom/:classroomId/subject/:subjectId/attendance"
-          element={<AttendanceEntry />}
-        />
-        <Route
-           path="classroom/:classroomId/subject/:subjectId/attendance/summary"
-           element={<AttendanceSummary />}
-        />
-        <Route
-          path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
-          element={<ScoreEntry />}
-        />
-                <Route
-          path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake"
-          element={<RetakeSetup />}
-        />
- 
+        <Route path="classroom/:classroomId/subject/:subjectId" element={<SubjectDetail />} />
+        <Route path="classroom/:classroomId/subject/:subjectId/attendance" element={<AttendanceEntry />} />
+        <Route path="classroom/:classroomId/subject/:subjectId/attendance/summary" element={<AttendanceSummary />} />
+        <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores" element={<ScoreEntry />} />
+        <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake" element={<RetakeSetup />} />
       </Route>
 
-<Route path="/student/scan"  element={  <StudentProtectedRoute>
-      <StudentScan />    </StudentProtectedRoute>  }  />
+      <Route path="/student/scan" element={<StudentProtectedRoute><StudentScan /></StudentProtectedRoute>} />
       <Route path="/student/login" element={<StudentLogin />} />
-      <Route path="/student" element={<StudentProtectedRoute>
-            <StudentHome />    </StudentProtectedRoute>       }     />
+      <Route path="/student" element={<StudentProtectedRoute><StudentHome /></StudentProtectedRoute>} />
+      <Route path="/student/retake/:examId" element={<StudentProtectedRoute><StudentRetake /></StudentProtectedRoute>} />
 
       <Route path="/" element={<Landing />} />
       <Route path="*" element={<Navigate to="/" replace />} />
