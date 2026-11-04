@@ -11,6 +11,7 @@ import {
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import { typeLabel } from "../constants";
+import { Link } from "react-router-dom";
 
 const STATUS_LABEL = { late: "สาย", leave: "ลา", absent: "ขาด" };
 const FLAGS = [
@@ -93,6 +94,7 @@ export default function StudentHome() {
   const [subjects, setSubjects] = useState([]);
   const [assignmentsBySubject, setAssignmentsBySubject] = useState({});
   const [attendance, setAttendance] = useState([]);
+  const [retakes, setRetakes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -142,6 +144,18 @@ export default function StudentHome() {
           )
         );
         setAttendance(attSnap.docs.map((d) => d.data()));
+              try {
+          const rtSnap = await getDocs(
+            query(
+              collection(db, "classrooms", classroomId, "retakeAttempts"),
+              where("studentCode", "==", studentCode)
+            )
+          );
+          setRetakes(rtSnap.docs.map((d) => d.data()));
+        } catch {
+          /* ยังไม่มีข้อสอบซ่อม หรือกฎยังไม่เปิดให้อ่าน ข้ามไป */
+        }
+
       } catch {
         setError("โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -168,6 +182,18 @@ export default function StudentHome() {
     )
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   
+
+  const fmt = (iso) => new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  const nowMs = Date.now();
+  const retakeCards = retakes.filter(
+    (r) => r.status !== "assigned" || nowMs <= Date.parse(r.closesAt)
+  );
+  const retakeBtn = {
+    display: "inline-block", padding: "10px 18px", borderRadius: 999, fontWeight: 700,
+    fontSize: 14, textDecoration: "none", background: COLORS.tabActive, color: "#fff",
+  };
+
+
     const tabBtn = (key, label) => (
     <button
       onClick={() => setTab(key)}
@@ -264,6 +290,23 @@ export default function StudentHome() {
 
         {tab === "scores" && (
           <>
+                      {retakeCards.map((r) => (
+              <div key={r.examId} style={{ ...cardStyle, border: `1px solid ${COLORS.partialBg}` }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: COLORS.badgeBg }}>📝 สอบซ่อม: {r.title}</div>
+                <div style={{ color: COLORS.muted, fontSize: 13, margin: "6px 0 10px" }}>
+                  เปิดสอบ {fmt(r.opensAt)} ถึง {fmt(r.closesAt)} | ทำได้ {r.durationMin} นาที
+                </div>
+                {r.status === "submitted" ? (
+                  <b style={{ color: COLORS.fullText }}>ส่งแล้ว ได้คะแนนซ่อม {r.retakeScore} / {r.maxScore}</b>
+                ) : nowMs < Date.parse(r.opensAt) ? (
+                  <span style={{ color: COLORS.muted }}>ยังไม่ถึงเวลาเปิดสอบ</span>
+                ) : (
+                  <Link to={`/student/retake/${r.examId}`} style={retakeBtn}>
+                    {r.status === "started" ? "ทำข้อสอบต่อ" : "เริ่มทำข้อสอบ"}
+                  </Link>
+                )}
+              </div>
+            ))}
             <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 16, lineHeight: 1.8 }}>
               <b style={{ color: COLORS.badgeBg }}>%</b> = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp;
               <b style={{ color: COLORS.badgeBg }}>L</b> = ส่งงานช้ากว่ากำหนด , &nbsp;

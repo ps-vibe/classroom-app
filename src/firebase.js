@@ -2,15 +2,17 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyC_ib0xdZiguPO7LGXcGQTxzzR1DvDdDo8",
+  authDomain: "classroom-web-5e9e3.firebaseapp.com",
+  projectId: "classroom-web-5e9e3",
+  storageBucket: "classroom-web-5e9e3.firebasestorage.app",
+  messagingSenderId: "23957891872",
+  appId: "1:23957891872:web:3295d1a842609686108545"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);

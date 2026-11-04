@@ -180,6 +180,15 @@ export default function SubjectDetail() {
                 >
                   กรอกคะแนน
                 </Link>
+
+                {ASSIGNMENT_TYPES.find((t) => t.value === a.type)?.isExam && (
+                  <Link
+                    to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/retake`}
+                    style={{ ...btnSecondary, textDecoration: "none", display: "inline-block" }}
+                  >
+                    สอบซ่อม
+                  </Link>
+                )}                
                 <button style={btnSecondary} onClick={() => startEdit(a)}>แก้ไข</button>
                 <button style={btnDanger} onClick={() => remove(a)} disabled={deletingId === a.id}>
                   {deletingId === a.id ? "กำลังลบ..." : "ลบ"}

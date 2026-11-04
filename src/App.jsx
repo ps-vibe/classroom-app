@@ -15,6 +15,8 @@ import Landing from "./pages/Landing";
 import AttendanceQR from "./pages/AttendanceQR";
 import StudentScan from "./pages/StudentScan";
 import AttendanceSummary from "./pages/AttendanceSummary";
+import RetakeSetup from "./pages/RetakeSetup";
+import StudentRetake from "./pages/StudentRetake";
 
 export default function App() {
   return (
@@ -28,6 +30,7 @@ export default function App() {
         <Route index element={<Classrooms />} />
         <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
         <Route path="classroom/:classroomId/students" element={<Students />} />
+        <Route path="/student/retake/:examId" element={<StudentProtectedRoute><StudentRetake /></StudentProtectedRoute>} />
         <Route
           path="classroom/:classroomId/subject/:subjectId"
           element={<SubjectDetail />}
@@ -44,6 +47,11 @@ export default function App() {
           path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
           element={<ScoreEntry />}
         />
+                <Route
+          path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake"
+          element={<RetakeSetup />}
+        />
+ 
       </Route>
 
 <Route path="/student/scan"  element={  <StudentProtectedRoute>
