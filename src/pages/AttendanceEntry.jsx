@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -42,6 +43,7 @@ export default function AttendanceEntry() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [checkedPeriods, setCheckedPeriods] = useState([]);
 
   useEffect(() => {
     getDoc(doc(db, "classrooms", classroomId, "subjects", subjectId)).then((snap) => {
@@ -54,6 +56,21 @@ export default function AttendanceEntry() {
       })
       .catch(() => setError("โหลดรายชื่อนักเรียนไม่สำเร็จ"));
   }, [classroomId, subjectId]);
+
+
+  // เช็คว่าวันนี้เคยเช็คคาบไหนไปแล้วบ้าง (กันลืมเปลี่ยนคาบ)
+  useEffect(() => {
+    if (!date) return;
+    getDocs(
+      query(
+        collection(db, "classrooms", classroomId, "attendanceLog"),
+        where("subjectId", "==", subjectId),
+        where("date", "==", date)
+      )
+    ).then((snap) => {
+      setCheckedPeriods(snap.docs.map((d) => d.data().period).sort((a, b) => a - b));
+    });
+  }, [classroomId, subjectId, date]);
 
   useEffect(() => {
     if (!studentsLoaded || !date) return;
@@ -136,6 +153,44 @@ export default function AttendanceEntry() {
     }
   };
 
+  const resetPeriod = async () => {
+    if (
+      !window.confirm(
+        `ล้างข้อมูลเช็คชื่อของวันที่ ${date} คาบที่ ${period} ทั้งหมด (รีเซ็ตทุกคนเป็น "มา") ใช่หรือไม่?`
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "classrooms", classroomId, "attendance"),
+          where("subjectId", "==", subjectId),
+          where("date", "==", date),
+          where("period", "==", period)
+        )
+      );
+      const batch = writeBatch(db);
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(doc(db, "classrooms", classroomId, "attendanceLog", `${subjectId}_${date}_${period}`));
+      await batch.commit();
+
+      const initial = {};
+      students.forEach((s) => (initial[s.id] = { ...emptyRow }));
+      setRows(initial);
+      setDirty(new Set());
+      setCheckedPeriods((prev) => prev.filter((p) => p !== period));
+      setMessage("ล้างข้อมูลคาบนี้เรียบร้อยแล้ว");
+    } catch (err) {
+      console.error("reset period error:", err);
+      setError("ล้างข้อมูลไม่สำเร็จ: " + err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const count = (status) => students.filter((s) => (rows[s.id] || emptyRow).status === status).length;
   const cell = { border: `1px solid ${theme.border}`, padding: 10, textAlign: "left" };
 
@@ -154,7 +209,7 @@ export default function AttendanceEntry() {
         </Link>
       </p>
 
-      <div style={{ ...cardStyle, marginBottom: 16, display: "flex", gap: 16, flexWrap: "wrap" }}>
+      <div style={{ ...cardStyle, marginBottom: 16, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
         <label style={{ fontSize: 14 }}>
           วันที่ <input type="date" value={date} onChange={changeDate} style={{ ...inputStyle, marginLeft: 6 }} />
         </label>
@@ -162,10 +217,26 @@ export default function AttendanceEntry() {
           คาบที่{" "}
           <select value={period} onChange={changePeriod} style={{ ...inputStyle, marginLeft: 6 }}>
             {Array.from({ length: 10 }, (_, i) => i + 1).map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <option key={p} value={p}>
+                {p}
+                {checkedPeriods.includes(p) ? " (เช็คแล้ว)" : ""}
+              </option>
             ))}
           </select>
         </label>
+        {checkedPeriods.length > 0 && (
+          <span style={{ fontSize: 13, color: "#B45309" }}>
+            วันนี้เช็คไปแล้ว: คาบ {checkedPeriods.join(", ")}
+          </span>
+        )}
+        <button
+          type="button"
+          style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #FCA5A5", background: "#FEF2F2", color: "#B91C1C", cursor: "pointer", fontSize: 13 }}
+          onClick={resetPeriod}
+          disabled={busy || !checkedPeriods.includes(period)}
+        >
+          ล้างข้อมูลคาบนี้ทั้งหมด
+        </button>
       </div>
 
       {studentsLoaded && students.length === 0 && <p style={{ color: theme.muted }}>ห้องนี้ยังไม่มีนักเรียน</p>}
