@@ -94,6 +94,7 @@ export default function StudentHome() {
   const [subjects, setSubjects] = useState([]);
   const [assignmentsBySubject, setAssignmentsBySubject] = useState({});
   const [attendance, setAttendance] = useState([]);
+  const [logTotals, setLogTotals] = useState({});
   const [retakes, setRetakes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -137,13 +138,23 @@ export default function StudentHome() {
         }
         setAssignmentsBySubject(grouped);
 
-        const attSnap = await getDocs(
-          query(
-            collection(db, "classrooms", classroomId, "attendance"),
-            where("studentCode", "==", studentCode)
-          )
-        );
+        const [attSnap, logSnap] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "classrooms", classroomId, "attendance"),
+              where("studentCode", "==", studentCode)
+            )
+          ),
+          getDocs(collection(db, "classrooms", classroomId, "attendanceLog")),
+        ]);
         setAttendance(attSnap.docs.map((d) => d.data()));
+        const totals = {};
+        logSnap.docs.forEach((d) => {
+          const subjId = d.data().subjectId;
+          totals[subjId] = (totals[subjId] || 0) + 1;
+        });
+        setLogTotals(totals);
+
               try {
           const rtSnap = await getDocs(
             query(
@@ -356,51 +367,92 @@ export default function StudentHome() {
           </>
         )}
 
-        {tab === "attendance" && (
-          <div style={cardStyle}>
-            <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12, color: COLORS.text }}>
-              ประวัติ สาย / ลา / ขาด
-            </div>
-            {attendance.length === 0 ? (
-              <p style={{ color: COLORS.muted, margin: 0 }}>ไม่มีประวัติ</p>
-            ) : (
-              [...attendance]
-                .sort((a, b) => (b.date + b.period).localeCompare(a.date + a.period))
-                .map((r, i) => (
-                  <div
-                    key={i}
+        {tab === "attendance" &&
+          subjects.map((subj) => {
+            const records = attendance
+              .filter((r) => r.subjectId === subj.id)
+              .sort((a, b) => (b.date + b.period).localeCompare(a.date + a.period));
+            const total = logTotals[subj.id] || 0;
+            const c = { late: 0, leave: 0, absent: 0 };
+            records.forEach((r) => (c[r.status] = (c[r.status] || 0) + 1));
+            const effectiveTotal = Math.max(total - c.leave, 0);
+            const present = Math.max(effectiveTotal - c.absent, 0);
+            const percent = effectiveTotal > 0 ? Math.round((present / effectiveTotal) * 1000) / 10 : 100;
+
+            if (total === 0) return null;
+
+            return (
+              <div key={subj.id} style={cardStyle}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 12,
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 17, color: COLORS.text }}>
+                    {subj.code ? `${subj.code} ` : ""}
+                    {subj.name}
+                  </div>
+                  <span
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "12px 0",
-                      borderTop: i === 0 ? "none" : `1px solid ${COLORS.border}`,
+                      padding: "4px 14px",
+                      borderRadius: 999,
+                      fontWeight: 700,
+                      fontSize: 14,
+                      background: percent >= 80 ? COLORS.fullBg : COLORS.partialBg,
+                      color: percent >= 80 ? COLORS.fullText : COLORS.partialText,
                     }}
                   >
-                    <div>
-                      <div style={{ fontWeight: 600, color: COLORS.text }}>
-                        {r.date} คาบ {r.period}
-                      </div>
-                      {r.reason && <div style={{ color: COLORS.muted, fontSize: 13 }}>{r.reason}</div>}
-                    </div>
-                                       <span
+                    เข้าเรียน {percent}%
+                  </span>
+                </div>
+                <div style={{ color: COLORS.muted, fontSize: 13, marginBottom: 8 }}>
+                  สาย {c.late} | ลา {c.leave} | ขาด {c.absent} (จากทั้งหมด {total} คาบ)
+                </div>
+
+                {records.length === 0 ? (
+                  <p style={{ color: COLORS.muted, margin: 0, fontSize: 14 }}>มาเรียนครบทุกคาบ</p>
+                ) : (
+                  records.map((r, i) => (
+                    <div
+                      key={i}
                       style={{
-                        alignSelf: "center",
-                        padding: "4px 14px",
-                        borderRadius: 999,
-                        fontWeight: 700,
-                        fontSize: 14,
-                        background: COLORS.partialBg,
-                        color: COLORS.partialText,
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "10px 0",
+                        borderTop: `1px solid ${COLORS.border}`,
                       }}
                     >
-                      {STATUS_LABEL[r.status] || r.status}
-                    </span>
-                  </div>
-                ))
-            )}
-          </div>
-        )}
+                      <div>
+                        <div style={{ fontWeight: 600, color: COLORS.text, fontSize: 14 }}>
+                          {r.date} คาบ {r.period}
+                        </div>
+                        {r.reason && <div style={{ color: COLORS.muted, fontSize: 12 }}>{r.reason}</div>}
+                      </div>
+                      <span
+                        style={{
+                          alignSelf: "center",
+                          padding: "3px 12px",
+                          borderRadius: 999,
+                          fontWeight: 700,
+                          fontSize: 13,
+                          background: COLORS.partialBg,
+                          color: COLORS.partialText,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {STATUS_LABEL[r.status] || r.status}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })}
       </div>
     </div>
   );
