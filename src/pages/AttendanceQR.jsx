@@ -59,7 +59,8 @@ export default function AttendanceQR() {
   // สร้าง QR ใหม่ทุกครั้งที่โค้ดปัจจุบันเปลี่ยน
   useEffect(() => {
     if (!session?.currentCode) return;
-    const url = `${window.location.origin}/student/scan?s=${sessionId}&c=${session.currentCode}`;
+    const base = import.meta.env.VITE_STUDENT_SITE_URL || window.location.origin;
+    const url = `${base}/student/scan?s=${sessionId}&c=${session.currentCode}`;
     QRCode.toDataURL(url, { width: 320 }).then(setQrImg);
   }, [session?.currentCode, sessionId]);
 

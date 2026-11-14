@@ -9,38 +9,79 @@ import SubjectDetail from "./pages/SubjectDetail";
 import Students from "./pages/Students";
 import ScoreEntry from "./pages/ScoreEntry";
 import AttendanceEntry from "./pages/AttendanceEntry";
+import AttendanceQR from "./pages/AttendanceQR";
+import AttendanceSummary from "./pages/AttendanceSummary";
 import StudentLogin from "./pages/StudentLogin";
 import StudentHome from "./pages/StudentHome";
-import Landing from "./pages/Landing";
-import AttendanceQR from "./pages/AttendanceQR";
 import StudentScan from "./pages/StudentScan";
-import AttendanceSummary from "./pages/AttendanceSummary";
-import RetakeSetup from "./pages/RetakeSetup";
-import StudentRetake from "./pages/StudentRetake";
+import Landing from "./pages/Landing";
+
+// "teacher" = เว็บครู, "student" = เว็บนักเรียน, ไม่ตั้งค่า = แสดงทั้งสองฝั่ง (ใช้ตอนทดสอบบนเครื่อง)
+const MODE = import.meta.env.VITE_APP_MODE;
+const showTeacher = MODE !== "student";
+const showStudent = MODE !== "teacher";
+const home = MODE === "teacher" ? "/teacher/login" : MODE === "student" ? "/student/login" : "/";
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/teacher/login" element={<TeacherLogin />} />
-      <Route path="/teacher" element={<ProtectedRoute><TeacherHome /></ProtectedRoute>}>
-        <Route path="classroom/:classroomId/subject/:subjectId/attendance/qr" element={<AttendanceQR />} />
-        <Route index element={<Classrooms />} />
-        <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
-        <Route path="classroom/:classroomId/students" element={<Students />} />
-        <Route path="classroom/:classroomId/subject/:subjectId" element={<SubjectDetail />} />
-        <Route path="classroom/:classroomId/subject/:subjectId/attendance" element={<AttendanceEntry />} />
-        <Route path="classroom/:classroomId/subject/:subjectId/attendance/summary" element={<AttendanceSummary />} />
-        <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores" element={<ScoreEntry />} />
-        <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake" element={<RetakeSetup />} />
-      </Route>
+      {showTeacher && <Route path="/teacher/login" element={<TeacherLogin />} />}
+      {showTeacher && (
+        <Route
+          path="/teacher"
+          element={
+            <ProtectedRoute>
+              <TeacherHome />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Classrooms />} />
+          <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
+          <Route path="classroom/:classroomId/students" element={<Students />} />
+          <Route path="classroom/:classroomId/subject/:subjectId" element={<SubjectDetail />} />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/attendance"
+            element={<AttendanceEntry />}
+          />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/attendance/qr"
+            element={<AttendanceQR />}
+          />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/attendance/summary"
+            element={<AttendanceSummary />}
+          />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
+            element={<ScoreEntry />}
+          />
+        </Route>
+      )}
 
-      <Route path="/student/scan" element={<StudentProtectedRoute><StudentScan /></StudentProtectedRoute>} />
-      <Route path="/student/login" element={<StudentLogin />} />
-      <Route path="/student" element={<StudentProtectedRoute><StudentHome /></StudentProtectedRoute>} />
-      <Route path="/student/retake/:examId" element={<StudentProtectedRoute><StudentRetake /></StudentProtectedRoute>} />
+      {showStudent && <Route path="/student/login" element={<StudentLogin />} />}
+      {showStudent && (
+        <Route
+          path="/student/scan"
+          element={
+            <StudentProtectedRoute>
+              <StudentScan />
+            </StudentProtectedRoute>
+          }
+        />
+      )}
+      {showStudent && (
+        <Route
+          path="/student"
+          element={
+            <StudentProtectedRoute>
+              <StudentHome />
+            </StudentProtectedRoute>
+          }
+        />
+      )}
 
-      <Route path="/" element={<Landing />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/" element={MODE ? <Navigate to={home} replace /> : <Landing />} />
+      <Route path="*" element={<Navigate to={home} replace />} />
     </Routes>
   );
 }
