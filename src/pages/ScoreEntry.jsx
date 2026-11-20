@@ -173,7 +173,7 @@ export default function ScoreEntry() {
               clean: hasFlags ? r.clean : false,
               retakeScore: r.retake === "" ? null : Number(r.retake),
               updatedAt: serverTimestamp(),
-            });
+            }, { merge: true });
           }
         });
         await batch.commit();

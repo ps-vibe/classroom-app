@@ -185,9 +185,14 @@ export default function SubjectDetail() {
                 </Link>
 
                 {a.type === "project" && (
-                  <Link to={`${assignmentBase(a)}/rubric`} style={linkBtn}>
-                    เกณฑ์ประเมิน
-                  </Link>
+                  <>
+                    <Link to={`${assignmentBase(a)}/rubric`} style={linkBtn}>
+                      เกณฑ์ประเมิน
+                    </Link>
+                    <Link to={`${assignmentBase(a)}/rubric-scoring`} style={{ ...btnTeal, textDecoration: "none", display: "inline-block" }}>
+                      ให้คะแนนตามเกณฑ์
+                    </Link>
+                  </>
                 )}
 
                 {ASSIGNMENT_TYPES.find((t) => t.value === a.type)?.isExam && (
