@@ -8,6 +8,9 @@ import ClassroomDetail from "./pages/ClassroomDetail";
 import SubjectDetail from "./pages/SubjectDetail";
 import Students from "./pages/Students";
 import ScoreEntry from "./pages/ScoreEntry";
+import ExamItems from "./pages/ExamItems";
+import RetakeSetup from "./pages/RetakeSetup";
+import StudentRetake from "./pages/StudentRetake";
 import AttendanceEntry from "./pages/AttendanceEntry";
 import AttendanceQR from "./pages/AttendanceQR";
 import AttendanceSummary from "./pages/AttendanceSummary";
@@ -15,6 +18,7 @@ import StudentLogin from "./pages/StudentLogin";
 import StudentHome from "./pages/StudentHome";
 import StudentScan from "./pages/StudentScan";
 import Landing from "./pages/Landing";
+
 
 // "teacher" = เว็บครู, "student" = เว็บนักเรียน, ไม่ตั้งค่า = แสดงทั้งสองฝั่ง (ใช้ตอนทดสอบบนเครื่อง)
 const MODE = import.meta.env.VITE_APP_MODE;
@@ -55,6 +59,15 @@ export default function App() {
             path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
             element={<ScoreEntry />}
           />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/items"
+            element={<ExamItems />}
+          />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake"
+            element={<RetakeSetup />}
+          />
+
         </Route>
       )}
 
@@ -75,6 +88,17 @@ export default function App() {
           element={
             <StudentProtectedRoute>
               <StudentHome />
+            </StudentProtectedRoute>
+          }
+        />
+      )}
+
+            {showStudent && (
+        <Route
+          path="/student/retake/:examId"
+          element={
+            <StudentProtectedRoute>
+              <StudentRetake />
             </StudentProtectedRoute>
           }
         />
