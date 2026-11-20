@@ -5,6 +5,7 @@ import {
   getDoc,
   addDoc,
   collection,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -16,8 +17,6 @@ import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { deleteAssignmentCascade } from "../deleteUtils";
 import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, btnTeal, inputStyle } from "../theme";
 import { exportSubjectScores } from "../exportUtils";
-import { collection as fsCollection, getDocs, query as fsQuery } from "firebase/firestore";
-
 
 const emptyForm = { title: "", type: "worksheet", maxScore: "", dueDate: "" };
 
@@ -29,15 +28,15 @@ export default function SubjectDetail() {
   const [editingId, setEditingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
-  const colRef = collection(db, "classrooms", classroomId, "subjects", subjectId, "assignments");
   const [exporting, setExporting] = useState(false);
+  const colRef = collection(db, "classrooms", classroomId, "subjects", subjectId, "assignments");
 
   const handleExport = async () => {
     setExporting(true);
     try {
       const [studentSnap, scoreSnap] = await Promise.all([
-        getDocs(fsCollection(db, "classrooms", classroomId, "students")),
-        getDocs(fsQuery(fsCollection(db, "classrooms", classroomId, "scores"))),
+        getDocs(collection(db, "classrooms", classroomId, "students")),
+        getDocs(query(collection(db, "classrooms", classroomId, "scores"))),
       ]);
       const students = studentSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
@@ -121,12 +120,15 @@ export default function SubjectDetail() {
     }
   };
 
+  const assignmentBase = (a) => `/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}`;
+  const linkBtn = { ...btnSecondary, textDecoration: "none", display: "inline-block" };
+
   return (
     <div>
       <Link to={`/teacher/classroom/${classroomId}`} style={{ color: theme.accent, fontSize: 14 }}>
         &larr; กลับไปหน้าห้องเรียน
       </Link>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>วิชา {subject ? subject.name : "..."}</h2>
         <button style={btnSecondary} onClick={handleExport} disabled={exporting || assignments.length === 0}>
           {exporting ? "กำลังสร้างไฟล์..." : "ดาวน์โหลดคะแนน (Excel)"}
@@ -135,6 +137,10 @@ export default function SubjectDetail() {
       <p style={{ margin: "0 0 20px" }}>
         <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/attendance`} style={{ color: theme.accent }}>
           เช็คคาบเรียน
+        </Link>
+        {" · "}
+        <Link to="/teacher/rubric-criteria" style={{ color: theme.accent }}>
+          คลังเกณฑ์การให้คะแนน
         </Link>
       </p>
 
@@ -174,30 +180,27 @@ export default function SubjectDetail() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <Link
-                  to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/scores`}
-                  style={{ ...btnTeal, textDecoration: "none", display: "inline-block" }}
-                >
+                <Link to={`${assignmentBase(a)}/scores`} style={{ ...btnTeal, textDecoration: "none", display: "inline-block" }}>
                   กรอกคะแนน
                 </Link>
 
+                {a.type === "project" && (
+                  <Link to={`${assignmentBase(a)}/rubric`} style={linkBtn}>
+                    เกณฑ์ประเมิน
+                  </Link>
+                )}
+
                 {ASSIGNMENT_TYPES.find((t) => t.value === a.type)?.isExam && (
                   <>
-                    <Link
-                      to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/items`}
-                      style={{ ...btnSecondary, textDecoration: "none", display: "inline-block" }}
-                    >
+                    <Link to={`${assignmentBase(a)}/items`} style={linkBtn}>
                       โครงข้อ/วิเคราะห์
                     </Link>
-                    <Link
-                      to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${a.id}/retake`}
-                      style={{ ...btnSecondary, textDecoration: "none", display: "inline-block" }}
-                    >
+                    <Link to={`${assignmentBase(a)}/retake`} style={linkBtn}>
                       สอบซ่อม
                     </Link>
                   </>
                 )}
-                               
+
                 <button style={btnSecondary} onClick={() => startEdit(a)}>แก้ไข</button>
                 <button style={btnDanger} onClick={() => remove(a)} disabled={deletingId === a.id}>
                   {deletingId === a.id ? "กำลังลบ..." : "ลบ"}

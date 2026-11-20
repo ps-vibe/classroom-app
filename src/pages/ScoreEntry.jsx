@@ -72,6 +72,7 @@ export default function ScoreEntry() {
 
   const max = assignment.maxScore;
   const isExam = !!ASSIGNMENT_TYPES.find((t) => t.value === assignment.type)?.isExam;
+  const hasFlags = !!ASSIGNMENT_TYPES.find((t) => t.value === assignment.type)?.hasFlags;
   const belowHalf = (score) => isExam && score !== "" && Number(score) < max / 2;
 
   const updateRow = (code, patch) => {
@@ -113,7 +114,7 @@ export default function ScoreEntry() {
         codes.slice(i, i + 400).forEach((code) => {
           const r = rows[code];
           const ref = doc(db, "classrooms", classroomId, "scores", `${assignmentId}_${code}`);
-          const empty = r.score === "" && !r.late && !r.accuracy && !r.clean && r.retake === "";
+          const empty = r.score === "" && (isExam || (!r.late && !r.accuracy && !r.clean)) && r.retake === "";
           if (empty) {
             batch.delete(ref);
           } else {
@@ -122,9 +123,9 @@ export default function ScoreEntry() {
               subjectId,
               studentCode: code,
               score: r.score === "" ? null : Number(r.score),
-              late: r.late,
-              accuracy: r.accuracy,
-              clean: r.clean,
+              late: isExam ? false : r.late,
+              accuracy: isExam ? false : r.accuracy,
+              clean: isExam ? false : r.clean,
               retakeScore: r.retake === "" ? null : Number(r.retake),
               updatedAt: serverTimestamp(),
             });
@@ -152,9 +153,11 @@ export default function ScoreEntry() {
         {assignment.title} <span style={{ color: theme.muted, fontWeight: 400, fontSize: 16 }}>[{typeLabel(assignment.type)}]</span>
       </h2>
       <p style={{ color: theme.muted, marginBottom: 8 }}>คะแนนเต็ม {max} | กำหนดส่ง {assignment.dueDate}</p>
-      <p style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>
-        L = ส่งงานช้ากว่ากำหนด , &nbsp; % = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp; C = งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด
-      </p>
+      {!isExam && (
+        <p style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>
+          L = ส่งงานช้ากว่ากำหนด , &nbsp; % = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp; C = งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด
+        </p>
+      )}
 
       {students.length === 0 ? (
         <p style={{ color: theme.muted }}>ห้องนี้ยังไม่มีนักเรียน</p>
@@ -175,7 +178,7 @@ export default function ScoreEntry() {
                   <th style={cell}>เลขที่</th>
                   <th style={cell}>ชื่อ-นามสกุล</th>
                   <th style={cell}>คะแนน</th>
-                  <th style={cell}>เหตุผลที่ไม่ได้เต็ม</th>
+                  {!isExam && <th style={cell}>เหตุผลที่ไม่ได้เต็ม</th>}
                   {isExam && <th style={cell}>ซ่อม</th>}
                 </tr>
               </thead>
@@ -199,29 +202,32 @@ export default function ScoreEntry() {
                         />{" "}
                         / {max}
                       </td>
-                      <td style={cell}>
-                        {FLAGS.map((f) => (
-                          <button
-                            key={f.key}
-                            type="button"
-                            title={f.title}
-                            onClick={() => updateRow(s.id, { [f.key]: !r[f.key] })}
-                            style={{
-                              marginRight: 4,
-                              width: 32,
-                              height: 32,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              border: `1px solid ${theme.border}`,
-                              borderRadius: 8,
-                              background: r[f.key] ? theme.teal : "#fff",
-                              color: r[f.key] ? "#fff" : theme.text,
-                            }}
-                          >
-                            {f.symbol}
-                          </button>
-                        ))}
-                      </td>
+                                          {!isExam && (
+                        <td style={cell}>
+                          {FLAGS.map((f) => (
+                            <button
+                              key={f.key}
+                              type="button"
+                              title={f.title}
+                              onClick={() => updateRow(s.id, { [f.key]: !r[f.key] })}
+                              style={{
+                                marginRight: 4,
+                                width: 32,
+                                height: 32,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                border: `1px solid ${theme.border}`,
+                                borderRadius: 8,
+                                background: r[f.key] ? theme.teal : "#fff",
+                                color: r[f.key] ? "#fff" : theme.text,
+                              }}
+                            >
+                              {f.symbol}
+                            </button>
+                          ))}
+                        </td>
+                      )}
+                      
                       {isExam && (
                         <td style={cell}>
                           {low ? (

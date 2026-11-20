@@ -1,7 +1,7 @@
 export const ASSIGNMENT_TYPES = [
-  { value: "book", label: "หนังสือ" },
-  { value: "worksheet", label: "ใบงานเพิ่ม" },
-  { value: "project", label: "โปรเจค" },
+  { value: "book", label: "หนังสือ", hasFlags: true },
+  { value: "worksheet", label: "ใบงานเพิ่ม", hasFlags: true },
+  { value: "project", label: "โปรเจค", isRubric: true },
   { value: "quiz", label: "สอบย่อย", isExam: true },
   { value: "midterm", label: "สอบกลางภาค", isExam: true },
   { value: "final", label: "สอบปลายภาค", isExam: true },

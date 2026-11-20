@@ -179,6 +179,16 @@ export default function ExamItems() {
 
       {error && <p style={{ color: theme.danger }}>{error}</p>}
       {msg && <p style={{ color: theme.success }}>{msg}</p>}
+
+      {items.length > 0 && (
+        <Link
+          to={`/teacher/classroom/${classroomId}/subject/${subjectId}/assignment/${assignmentId}/item-scores`}
+          style={{ ...btnSecondary, textDecoration: "none", display: "inline-block", marginTop: 8 }}
+        >
+          ไปนำเข้าคะแนนรายข้อ
+        </Link>
+      )}
+      
     </div>
   );
 }

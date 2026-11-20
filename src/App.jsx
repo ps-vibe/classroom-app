@@ -11,6 +11,10 @@ import ScoreEntry from "./pages/ScoreEntry";
 import ExamItems from "./pages/ExamItems";
 import RetakeSetup from "./pages/RetakeSetup";
 import StudentRetake from "./pages/StudentRetake";
+import ExamItemScores from "./pages/ExamItemScores";
+import RubricLibrary from "./pages/RubricLibrary";
+import RubricSetup from "./pages/RubricSetup";
+
 import AttendanceEntry from "./pages/AttendanceEntry";
 import AttendanceQR from "./pages/AttendanceQR";
 import AttendanceSummary from "./pages/AttendanceSummary";
@@ -63,6 +67,16 @@ export default function App() {
             path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/items"
             element={<ExamItems />}
           />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/item-scores"
+            element={<ExamItemScores />}
+          />
+          <Route path="rubric-criteria" element={<RubricLibrary />} />
+          <Route
+            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/rubric"
+            element={<RubricSetup />}
+          />
+          
           <Route
             path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake"
             element={<RetakeSetup />}
