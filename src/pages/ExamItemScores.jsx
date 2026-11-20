@@ -256,6 +256,36 @@ export default function ExamItemScores() {
           </div>
         </div>
       )}
+      {saved.length > 0 && (
+        <div style={{ ...cardStyle, marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0, fontSize: 15 }}>คะแนนรายข้อที่บันทึกไว้แล้ว</h3>
+          <div style={{ overflowX: "auto", maxHeight: 320, overflowY: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: 320 }}>
+              <thead>
+                <tr style={{ color: theme.muted, textAlign: "left" }}>
+                  <th style={th}>เลขที่</th>
+                  <th style={th}>ชื่อ</th>
+                  <th style={th}>คะแนนรวมจากรายข้อ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s) => {
+                  const p = saved.find((x) => x.id === s.id);
+                  return (
+                    <tr key={s.id} style={{ borderTop: `1px solid ${theme.border}` }}>
+                      <td style={td}>{s.no}</td>
+                      <td style={td}>{nameOf(s)}</td>
+                      <td style={td}>
+                        {p ? (p.filled === 0 ? "ไม่ได้เข้าสอบ" : `${p.total} / ${totalMax}`) : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {error && <p style={{ color: theme.danger }}>{error}</p>}
       {msg && <p style={{ color: theme.success }}>{msg}</p>}

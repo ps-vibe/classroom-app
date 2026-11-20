@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
-import { theme, cardStyle, btnPrimary, btnTeal, inputStyle } from "../theme";
+import { theme, cardStyle, btnSecondary, btnTeal, inputStyle } from "../theme";
 
 const FLAGS = [
   { key: "late", symbol: "L", title: "ส่งงานช้ากว่ากำหนด ," },
@@ -28,6 +28,7 @@ export default function ScoreEntry() {
   const [assignment, setAssignment] = useState(null);
   const [students, setStudents] = useState([]);
   const [rows, setRows] = useState({});
+  const [itemTotals, setItemTotals] = useState({});
   const [dirty, setDirty] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -58,6 +59,22 @@ export default function ScoreEntry() {
           };
         });
         setRows(initial);
+
+        // คะแนนรวมจากรายข้อ (ถ้ามี) ใช้แสดงเทียบและเติมลงช่องคะแนน
+        try {
+          const itSnap = await getDocs(
+            collection(db, "classrooms", classroomId, "subjects", subjectId, "assignments", assignmentId, "itemScores")
+          );
+          const totals = {};
+          itSnap.docs.forEach((d) => {
+            const v = d.data();
+            const vals = Object.values(v.scores || {});
+            if (vals.some((x) => x !== null && x !== undefined)) totals[d.id] = v.total;
+          });
+          setItemTotals(totals);
+        } catch {
+          /* ยังไม่มีคะแนนรายข้อ หรือยังไม่มีสิทธิ์อ่าน */
+        }
       } catch {
         setError("โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -71,8 +88,10 @@ export default function ScoreEntry() {
   if (!assignment) return <p>ไม่พบใบงานนี้</p>;
 
   const max = assignment.maxScore;
-  const isExam = !!ASSIGNMENT_TYPES.find((t) => t.value === assignment.type)?.isExam;
-  const hasFlags = !!ASSIGNMENT_TYPES.find((t) => t.value === assignment.type)?.hasFlags;
+  const typeInfo = ASSIGNMENT_TYPES.find((t) => t.value === assignment.type);
+  const isExam = !!typeInfo?.isExam;
+  const hasFlags = !!typeInfo?.hasFlags;
+  const hasItemTotals = isExam && Object.keys(itemTotals).length > 0;
   const belowHalf = (score) => isExam && score !== "" && Number(score) < max / 2;
 
   const updateRow = (code, patch) => {
@@ -85,6 +104,31 @@ export default function ScoreEntry() {
     const patch = { score: value };
     if (!belowHalf(value)) patch.retake = "";
     updateRow(code, patch);
+  };
+
+  const fillFromItems = () => {
+    const codes = Object.keys(itemTotals).filter((c) => rows[c]);
+    if (codes.length === 0) return;
+    if (
+      !window.confirm(
+        `ใส่คะแนนจากรายข้อให้นักเรียน ${codes.length} คน (จะทับตัวเลขในช่องคะแนนของคนเหล่านี้) แล้วต้องกด "บันทึกคะแนน" เพื่อยืนยัน ต้องการทำต่อหรือไม่?`
+      )
+    )
+      return;
+    setRows((prev) => {
+      const next = { ...prev };
+      codes.forEach((code) => {
+        const v = String(itemTotals[code]);
+        next[code] = { ...next[code], score: v, retake: belowHalf(v) ? next[code].retake : "" };
+      });
+      return next;
+    });
+    setDirty((prev) => {
+      const s = new Set(prev);
+      codes.forEach((c) => s.add(c));
+      return s;
+    });
+    setMessage("");
   };
 
   const inRange = (value) => {
@@ -114,7 +158,8 @@ export default function ScoreEntry() {
         codes.slice(i, i + 400).forEach((code) => {
           const r = rows[code];
           const ref = doc(db, "classrooms", classroomId, "scores", `${assignmentId}_${code}`);
-          const empty = r.score === "" && (isExam || (!r.late && !r.accuracy && !r.clean)) && r.retake === "";
+          const empty =
+            r.score === "" && (!hasFlags || (!r.late && !r.accuracy && !r.clean)) && r.retake === "";
           if (empty) {
             batch.delete(ref);
           } else {
@@ -123,9 +168,9 @@ export default function ScoreEntry() {
               subjectId,
               studentCode: code,
               score: r.score === "" ? null : Number(r.score),
-              late: isExam ? false : r.late,
-              accuracy: isExam ? false : r.accuracy,
-              clean: isExam ? false : r.clean,
+              late: hasFlags ? r.late : false,
+              accuracy: hasFlags ? r.accuracy : false,
+              clean: hasFlags ? r.clean : false,
               retakeScore: r.retake === "" ? null : Number(r.retake),
               updatedAt: serverTimestamp(),
             });
@@ -153,7 +198,7 @@ export default function ScoreEntry() {
         {assignment.title} <span style={{ color: theme.muted, fontWeight: 400, fontSize: 16 }}>[{typeLabel(assignment.type)}]</span>
       </h2>
       <p style={{ color: theme.muted, marginBottom: 8 }}>คะแนนเต็ม {max} | กำหนดส่ง {assignment.dueDate}</p>
-      {!isExam && (
+      {hasFlags && (
         <p style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>
           L = ส่งงานช้ากว่ากำหนด , &nbsp; % = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp; C = งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด
         </p>
@@ -167,6 +212,11 @@ export default function ScoreEntry() {
             <button style={btnTeal} onClick={save} disabled={busy || dirty.size === 0}>
               {busy ? "กำลังบันทึก..." : `บันทึกคะแนน${dirty.size ? ` (${dirty.size} รายการที่แก้)` : ""}`}
             </button>
+            {hasItemTotals && (
+              <button style={{ ...btnSecondary, marginLeft: 8 }} onClick={fillFromItems} disabled={busy}>
+                ใส่คะแนนจากรายข้อ
+              </button>
+            )}
             {error && <span style={{ color: theme.danger, marginLeft: 12 }}>{error}</span>}
             {message && <span style={{ color: theme.success, marginLeft: 12 }}>{message}</span>}
           </div>
@@ -178,7 +228,8 @@ export default function ScoreEntry() {
                   <th style={cell}>เลขที่</th>
                   <th style={cell}>ชื่อ-นามสกุล</th>
                   <th style={cell}>คะแนน</th>
-                  {!isExam && <th style={cell}>เหตุผลที่ไม่ได้เต็ม</th>}
+                  {hasItemTotals && <th style={cell}>รวมจากรายข้อ</th>}
+                  {hasFlags && <th style={cell}>เหตุผลที่ไม่ได้เต็ม</th>}
                   {isExam && <th style={cell}>ซ่อม</th>}
                 </tr>
               </thead>
@@ -186,6 +237,9 @@ export default function ScoreEntry() {
                 {students.map((s) => {
                   const r = rows[s.id] || emptyRow;
                   const low = belowHalf(r.score);
+                  const itemTotal = itemTotals[s.id];
+                  const hasItem = itemTotal !== undefined;
+                  const same = hasItem && r.score !== "" && Number(r.score) === Number(itemTotal);
                   return (
                     <tr key={s.id} style={low ? { background: "#FEF2F2" } : undefined}>
                       <td style={cell}>{s.no}</td>
@@ -202,7 +256,16 @@ export default function ScoreEntry() {
                         />{" "}
                         / {max}
                       </td>
-                                          {!isExam && (
+                      {hasItemTotals && (
+                        <td style={cell}>
+                          {hasItem ? (
+                            <span style={{ fontWeight: 700, color: same ? theme.success : theme.danger }}>{itemTotal}</span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      )}
+                      {hasFlags && (
                         <td style={cell}>
                           {FLAGS.map((f) => (
                             <button
@@ -227,7 +290,6 @@ export default function ScoreEntry() {
                           ))}
                         </td>
                       )}
-                      
                       {isExam && (
                         <td style={cell}>
                           {low ? (
