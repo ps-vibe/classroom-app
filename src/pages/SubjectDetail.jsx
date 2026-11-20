@@ -142,6 +142,12 @@ export default function SubjectDetail() {
         <Link to="/teacher/rubric-criteria" style={{ color: theme.accent }}>
           คลังเกณฑ์การให้คะแนน
         </Link>
+
+                {" · "}
+        <Link to="/teacher/cleanup" style={{ color: theme.accent }}>
+          ตรวจหาข้อมูลกำพร้า
+        </Link>
+        
       </p>
 
       <div style={{ ...cardStyle, marginBottom: 20 }}>

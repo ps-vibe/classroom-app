@@ -175,6 +175,14 @@ export default function AttendanceEntry() {
       const batch = writeBatch(db);
       snap.docs.forEach((d) => batch.delete(d.ref));
       batch.delete(doc(db, "classrooms", classroomId, "attendanceLog", `${subjectId}_${date}_${period}`));
+      const scanSnap = await getDocs(
+        query(
+          collection(db, "classrooms", classroomId, "attendanceScans"),
+          where("sessionId", "==", `${subjectId}_${date}_${period}`)
+        )
+      );
+      scanSnap.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(doc(db, "classrooms", classroomId, "attendanceSessions", `${subjectId}_${date}_${period}`));
       await batch.commit();
 
       const initial = {};
