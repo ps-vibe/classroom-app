@@ -1,9 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
-import { collection, doc, getDoc, getDocs, writeBatch, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  writeBatch,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../firebase";
-import { theme, cardStyle, btnPrimary, btnSecondary } from "../theme";
+import { ASSIGNMENT_TYPES } from "../constants";
+import { theme, cardStyle, btnPrimary, btnSecondary, btnTeal } from "../theme";
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -12,11 +22,13 @@ export default function ExamItemScores() {
   const [assignment, setAssignment] = useState(null);
   const [items, setItems] = useState([]);
   const [students, setStudents] = useState([]);
-  const [existing, setExisting] = useState(0);
+  const [saved, setSaved] = useState([]);
   const [parsed, setParsed] = useState(null);
   const [problems, setProblems] = useState([]);
+  const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -39,9 +51,21 @@ export default function ExamItemScores() {
         setStudents(stSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.no - b.no));
         try {
           const rSnap = await getDocs(collection(db, ...base, "itemScores"));
-          if (!cancelled) setExisting(rSnap.size);
+          if (!cancelled) {
+            setSaved(
+              rSnap.docs.map((d) => {
+                const v = d.data();
+                const vals = Object.values(v.scores || {});
+                return {
+                  id: d.id,
+                  total: v.total,
+                  filled: vals.filter((x) => x !== null && x !== undefined).length,
+                };
+              })
+            );
+          }
         } catch {
-          /* ยังไม่มีสิทธิ์อ่าน หรือยังไม่มีข้อมูล */
+          /* ยังไม่มีข้อมูล หรือยังไม่มีสิทธิ์อ่าน */
         }
       } catch {
         if (!cancelled) setError("โหลดข้อมูลไม่สำเร็จ");
@@ -54,6 +78,10 @@ export default function ExamItemScores() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classroomId, subjectId, assignmentId]);
+
+  const totalMax = round2(items.reduce((s, it) => s + Number(it.maxScore || 0), 0));
+  const maxMismatch = !!assignment && items.length > 0 && totalMax !== Number(assignment.maxScore);
+  const isExam = !!ASSIGNMENT_TYPES.find((t) => t.value === assignment?.type)?.isExam;
 
   const downloadTemplate = () => {
     const rows = students.map((s) => {
@@ -77,6 +105,7 @@ export default function ExamItemScores() {
     setMsg("");
     setParsed(null);
     setProblems([]);
+    setPlan(null);
     try {
       const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
@@ -140,7 +169,7 @@ export default function ExamItemScores() {
 
   const save = async () => {
     if (!parsed || parsed.length === 0 || problems.length > 0) return;
-    if (existing > 0 && !window.confirm("มีคะแนนรายข้อเดิมอยู่แล้ว การบันทึกจะแทนที่คะแนนของนักเรียนที่อยู่ในไฟล์นี้ ต้องการทำต่อหรือไม่?")) return;
+    if (saved.length > 0 && !window.confirm("มีคะแนนรายข้อเดิมอยู่แล้ว การบันทึกจะแทนที่คะแนนของนักเรียนที่อยู่ในไฟล์นี้ ต้องการทำต่อหรือไม่?")) return;
     setSaving(true);
     setError("");
     try {
@@ -155,8 +184,13 @@ export default function ExamItemScores() {
       });
       await batch.commit();
       setMsg(`บันทึกคะแนนรายข้อของนักเรียน ${parsed.length} คนเรียบร้อย`);
-      setExisting((n) => Math.max(n, parsed.length));
+      setSaved((prev) => {
+        const m = new Map(prev.map((x) => [x.id, x]));
+        parsed.forEach((p) => m.set(p.id, { id: p.id, total: p.total, filled: p.filled }));
+        return [...m.values()];
+      });
       setParsed(null);
+      setPlan(null);
     } catch {
       setError("บันทึกไม่สำเร็จ");
     } finally {
@@ -164,7 +198,98 @@ export default function ExamItemScores() {
     }
   };
 
+  // ---- ส่งคะแนนรวมไปหน้าคะแนนของใบงาน ----
+  const buildPlan = async () => {
+    setError("");
+    setMsg("");
+    try {
+      const sc = await getDocs(
+        query(collection(db, "classrooms", classroomId, "scores"), where("assignmentId", "==", assignmentId))
+      );
+      const old = {};
+      sc.docs.forEach((d) => {
+        old[d.data().studentCode] = d.data();
+      });
+      const stById = {};
+      students.forEach((s) => {
+        stById[s.id] = s;
+      });
+      const rows = [];
+      let skipped = 0;
+      saved.forEach((p) => {
+        if (p.filled === 0) {
+          skipped += 1;
+          return;
+        }
+        const st = stById[p.id];
+        if (!st) return;
+        const o = old[p.id];
+        rows.push({
+          id: p.id,
+          no: st.no,
+          name: nameOf(st),
+          exists: !!o,
+          oldScore: o?.score ?? null,
+          newScore: p.total,
+          hadRetake: o?.retakeScore !== null && o?.retakeScore !== undefined,
+        });
+      });
+      rows.sort((a, b) => a.no - b.no);
+      setPlan({ rows, skipped });
+    } catch {
+      setError("โหลดคะแนนเดิมของใบงานไม่สำเร็จ");
+    }
+  };
+
+  const confirmSync = async () => {
+    if (!plan) return;
+    const changed = plan.rows.filter((r) => r.oldScore !== r.newScore);
+    if (changed.length === 0) {
+      setPlan(null);
+      setMsg("คะแนนในหน้าคะแนนตรงกันอยู่แล้ว ไม่มีรายการที่ต้องส่ง");
+      return;
+    }
+    const max = Number(assignment.maxScore);
+    setSyncing(true);
+    setError("");
+    try {
+      for (let i = 0; i < changed.length; i += 400) {
+        const batch = writeBatch(db);
+        changed.slice(i, i + 400).forEach((r) => {
+          const ref = doc(db, "classrooms", classroomId, "scores", `${assignmentId}_${r.id}`);
+          if (r.exists) {
+            const patch = { score: r.newScore, updatedAt: serverTimestamp() };
+            if (isExam && !(r.newScore < max / 2) && r.hadRetake) patch.retakeScore = null;
+            batch.set(ref, patch, { merge: true });
+          } else {
+            batch.set(ref, {
+              assignmentId,
+              subjectId,
+              studentCode: r.id,
+              score: r.newScore,
+              late: false,
+              accuracy: false,
+              clean: false,
+              retakeScore: null,
+              updatedAt: serverTimestamp(),
+            });
+          }
+        });
+        await batch.commit();
+      }
+      setMsg(`ส่งคะแนนรวมไปหน้าคะแนนของใบงานแล้ว ${changed.length} คน`);
+      setPlan(null);
+    } catch {
+      setError("ส่งคะแนนไม่สำเร็จ");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const emptyRows = parsed ? parsed.filter((p) => p.filled === 0).length : 0;
+  const changedRows = plan ? plan.rows.filter((r) => r.oldScore !== r.newScore) : [];
+  const th = { padding: "4px 10px" };
+  const td = { padding: "4px 10px" };
 
   return (
     <div>
@@ -201,9 +326,9 @@ export default function ExamItemScores() {
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <h3 style={{ marginTop: 0, fontSize: 15 }}>2. อัปโหลดไฟล์ที่กรอกแล้ว</h3>
             <input type="file" accept=".xlsx,.xls" onChange={handleFile} />
-            {existing > 0 && (
+            {saved.length > 0 && (
               <p style={{ margin: "8px 0 0", color: theme.muted, fontSize: 13 }}>
-                ตอนนี้มีคะแนนรายข้อบันทึกไว้แล้ว {existing} คน
+                ตอนนี้มีคะแนนรายข้อบันทึกไว้แล้ว {saved.length} คน
               </p>
             )}
           </div>
@@ -233,17 +358,17 @@ export default function ExamItemScores() {
             <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: 320 }}>
               <thead>
                 <tr style={{ color: theme.muted, textAlign: "left" }}>
-                  <th style={{ padding: "4px 10px" }}>เลขที่</th>
-                  <th style={{ padding: "4px 10px" }}>ชื่อ</th>
-                  <th style={{ padding: "4px 10px" }}>รวม</th>
+                  <th style={th}>เลขที่</th>
+                  <th style={th}>ชื่อ</th>
+                  <th style={th}>รวม</th>
                 </tr>
               </thead>
               <tbody>
                 {parsed.map((p) => (
                   <tr key={p.id} style={{ borderTop: `1px solid ${theme.border}` }}>
-                    <td style={{ padding: "4px 10px" }}>{p.no}</td>
-                    <td style={{ padding: "4px 10px" }}>{p.name}</td>
-                    <td style={{ padding: "4px 10px" }}>{p.filled === 0 ? "-" : p.total}</td>
+                    <td style={td}>{p.no}</td>
+                    <td style={td}>{p.name}</td>
+                    <td style={td}>{p.filled === 0 ? "-" : p.total}</td>
                   </tr>
                 ))}
               </tbody>
@@ -256,6 +381,67 @@ export default function ExamItemScores() {
           </div>
         </div>
       )}
+
+      {saved.length > 0 && assignment && (
+        <div style={{ ...cardStyle, marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0, fontSize: 15 }}>4. ส่งคะแนนรวมไปหน้าคะแนนของใบงาน</h3>
+          <p style={{ margin: "0 0 10px", color: theme.muted, fontSize: 13 }}>
+            คะแนนรวมจากรายข้อจะแทนที่ช่อง "คะแนน" ในหน้ากรอกคะแนน (ที่นักเรียนเห็น) ส่วนเครื่องหมาย L / % / C ไม่ถูกแตะ
+            และนักเรียนที่ไม่มีคะแนนรายข้อเลยจะไม่ถูกเปลี่ยน
+          </p>
+          {maxMismatch && (
+            <p style={{ color: theme.danger, fontSize: 13, margin: "0 0 10px" }}>
+              คะแนนเต็มรวมของโครงข้อ ({totalMax}) ไม่เท่ากับคะแนนเต็มของใบงาน ({assignment.maxScore}) แก้ที่หน้าโครงข้อหรือที่ใบงานก่อน จึงจะส่งคะแนนได้
+            </p>
+          )}
+          {!plan && (
+            <button type="button" style={btnSecondary} onClick={buildPlan} disabled={maxMismatch}>
+              ดูตัวอย่างการส่งคะแนน
+            </button>
+          )}
+          {plan && (
+            <>
+              <p style={{ margin: "0 0 8px", fontSize: 14 }}>
+                จะเปลี่ยน <b>{changedRows.length}</b> คน · ตรงกันอยู่แล้ว {plan.rows.length - changedRows.length} คน
+                {plan.skipped > 0 && <span style={{ color: theme.muted }}> · ข้าม {plan.skipped} คน (ไม่มีคะแนนรายข้อ)</span>}
+              </p>
+              {changedRows.length > 0 && (
+                <div style={{ overflowX: "auto", maxHeight: 260, overflowY: "auto" }}>
+                  <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: 360 }}>
+                    <thead>
+                      <tr style={{ color: theme.muted, textAlign: "left" }}>
+                        <th style={th}>เลขที่</th>
+                        <th style={th}>ชื่อ</th>
+                        <th style={th}>เดิม</th>
+                        <th style={th}>ใหม่</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {changedRows.map((r) => (
+                        <tr key={r.id} style={{ borderTop: `1px solid ${theme.border}` }}>
+                          <td style={td}>{r.no}</td>
+                          <td style={td}>{r.name}</td>
+                          <td style={td}>{r.oldScore === null ? "(ยังไม่มี)" : r.oldScore}</td>
+                          <td style={td}><b>{r.newScore}</b></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" style={btnTeal} onClick={confirmSync} disabled={syncing}>
+                  {syncing ? "กำลังส่ง..." : changedRows.length === 0 ? "ปิด" : "ยืนยันส่งคะแนน"}
+                </button>
+                <button type="button" style={btnSecondary} onClick={() => setPlan(null)} disabled={syncing}>
+                  ยกเลิก
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {saved.length > 0 && (
         <div style={{ ...cardStyle, marginBottom: 16 }}>
           <h3 style={{ marginTop: 0, fontSize: 15 }}>คะแนนรายข้อที่บันทึกไว้แล้ว</h3>
