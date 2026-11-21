@@ -335,11 +335,6 @@ export default function StudentHome() {
                 )}
               </div>
             ))}
-            <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 16, lineHeight: 1.8 }}>
-              <b style={{ color: COLORS.badgeBg }}>%</b> = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp;
-              <b style={{ color: COLORS.badgeBg }}>L</b> = ส่งงานช้ากว่ากำหนด , &nbsp;
-              <b style={{ color: COLORS.badgeBg }}>C</b> = งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด
-            </div>
 
             {subjects.map((subj) => (
               <div key={subj.id} style={cardStyle}>
