@@ -155,27 +155,29 @@ export default function ScoreEntry() {
     try {
       for (let i = 0; i < codes.length; i += 400) {
         const batch = writeBatch(db);
+
         codes.slice(i, i + 400).forEach((code) => {
           const r = rows[code];
           const ref = doc(db, "classrooms", classroomId, "scores", `${assignmentId}_${code}`);
-          const empty =
-            r.score === "" && (!hasFlags || (!r.late && !r.accuracy && !r.clean)) && r.retake === "";
+          const empty = r.score === "" && r.retake === "";
           if (empty) {
             batch.delete(ref);
           } else {
-            batch.set(ref, {
-              assignmentId,
-              subjectId,
-              studentCode: code,
-              score: r.score === "" ? null : Number(r.score),
-              late: hasFlags ? r.late : false,
-              accuracy: hasFlags ? r.accuracy : false,
-              clean: hasFlags ? r.clean : false,
-              retakeScore: r.retake === "" ? null : Number(r.retake),
-              updatedAt: serverTimestamp(),
-            }, { merge: true });
+            batch.set(
+              ref,
+              {
+                assignmentId,
+                subjectId,
+                studentCode: code,
+                score: r.score === "" ? null : Number(r.score),
+                retakeScore: r.retake === "" ? null : Number(r.retake),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
           }
         });
+
         await batch.commit();
       }
       setDirty(new Set());

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { addDoc, collection, deleteDoc, doc, getDocs, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import { theme, cardStyle, btnPrimary, btnSecondary, btnDanger, inputStyle } from "../theme";
-import { LEVELS, LEVEL_LABEL, DEFAULT_LATE_DAYS, lateText, STARTER_CRITERIA } from "../rubricUtils";
+import { LEVELS, LEVEL_LABEL, DEFAULT_LATE_DAYS, lateText, PROJECT_CRITERIA, WORKSHEET_CRITERIA } from "../rubricUtils";
 
 const colRef = collection(db, "rubricCriteria");
 
@@ -101,7 +101,7 @@ export default function RubricLibrary() {
     setError("");
     try {
       const batch = writeBatch(db);
-      STARTER_CRITERIA.forEach((c, i) => {
+      PROJECT_CRITERIA.forEach((c, i) => {
         batch.set(doc(colRef), { ...c, order: i + 1, createdAt: serverTimestamp() });
       });
       await batch.commit();
@@ -109,6 +109,31 @@ export default function RubricLibrary() {
       await load();
     } catch {
       setError("สร้างเกณฑ์เริ่มต้นไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addWorksheetSet = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const have = new Set(list.map((c) => c.name));
+      const toAdd = WORKSHEET_CRITERIA.filter((c) => !have.has(c.name));
+      if (toAdd.length === 0) {
+        setMsg("มีชุดตัวชี้วัดหนังสือ/ใบงานครบอยู่แล้ว");
+        return;
+      }
+      const start = list.reduce((m, c) => Math.max(m, c.order ?? 0), 0);
+      const batch = writeBatch(db);
+      toAdd.forEach((c, i) => {
+        batch.set(doc(colRef), { ...c, order: start + i + 1, createdAt: serverTimestamp() });
+      });
+      await batch.commit();
+      setMsg(`เพิ่มตัวชี้วัดหนังสือ/ใบงาน ${toAdd.length} ข้อเรียบร้อย`);
+      await load();
+    } catch {
+      setError("เพิ่มชุดตัวชี้วัดไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -218,8 +243,11 @@ export default function RubricLibrary() {
       </div>
 
       {list.length > 0 && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" style={btnSecondary} onClick={addNew} disabled={busy}>+ เพิ่มเกณฑ์ใหม่</button>
+          <button type="button" style={btnSecondary} onClick={addWorksheetSet} disabled={busy}>
+            + เพิ่มชุดตัวชี้วัดหนังสือ/ใบงาน
+          </button>
         </div>
       )}
     </div>

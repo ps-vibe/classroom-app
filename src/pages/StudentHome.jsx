@@ -139,7 +139,7 @@ export default function StudentHome() {
           // โปรเจกต์ที่ให้คะแนนตามเกณฑ์แล้ว: ดึงชื่อเกณฑ์มาแสดงคู่กับระดับของนักเรียน
           await Promise.all(
             list.map(async (a) => {
-              if (a.type === "project" && a.score?.rubricLevels) {
+              if (a.score?.rubricLevels) {
                 try {
                   const cfg = await getDoc(
                     doc(db, "classrooms", classroomId, "subjects", subj.id, "assignments", a.id, "rubric", "config")
@@ -391,7 +391,7 @@ export default function StudentHome() {
                           </div>
                         )}
                       </div>
-                      
+
                       <div style={{ textAlign: "right" }}>
                         <ScoreBadge score={a.score?.score} maxScore={a.maxScore} />
                         {a.score && <ReasonBadges item={a.score} />}

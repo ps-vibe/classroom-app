@@ -143,9 +143,14 @@ export default function SubjectDetail() {
           คลังเกณฑ์การให้คะแนน
         </Link>
 
-                {" · "}
+        {" · "}
         <Link to="/teacher/cleanup" style={{ color: theme.accent }}>
           ตรวจหาข้อมูลกำพร้า
+        </Link>
+
+        {" · "}
+        <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}/copy-assignments`} style={{ color: theme.accent }}>
+          คัดลอกใบงานจากห้องอื่น
         </Link>
 
       </p>
@@ -190,7 +195,7 @@ export default function SubjectDetail() {
                   กรอกคะแนน
                 </Link>
 
-                {a.type === "project" && (
+                {!ASSIGNMENT_TYPES.find((t) => t.value === a.type)?.isExam && (
                   <>
                     <Link to={`${assignmentBase(a)}/rubric`} style={linkBtn}>
                       เกณฑ์ประเมิน
