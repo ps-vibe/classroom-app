@@ -15,11 +15,6 @@ import { Link } from "react-router-dom";
 import { LEVEL_LABEL } from "../rubricUtils";
 
 const STATUS_LABEL = { late: "สาย", leave: "ลา", absent: "ขาด" };
-const FLAGS = [
-  { key: "late", symbol: "L" },
-  { key: "accuracy", symbol: "%" },
-  { key: "clean", symbol: "C" },
-];
 
 const COLORS = {
   bg: "#F7F3EC",
