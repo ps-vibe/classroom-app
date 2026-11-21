@@ -147,7 +147,7 @@ export default function SubjectDetail() {
         <Link to="/teacher/cleanup" style={{ color: theme.accent }}>
           ตรวจหาข้อมูลกำพร้า
         </Link>
-        
+
       </p>
 
       <div style={{ ...cardStyle, marginBottom: 20 }}>
@@ -204,7 +204,10 @@ export default function SubjectDetail() {
                 {ASSIGNMENT_TYPES.find((t) => t.value === a.type)?.isExam && (
                   <>
                     <Link to={`${assignmentBase(a)}/items`} style={linkBtn}>
-                      โครงข้อ/วิเคราะห์
+                      โครงข้อ/คะแนนรายข้อ
+                    </Link>
+                    <Link to={`${assignmentBase(a)}/analysis`} style={linkBtn}>
+                      วิเคราะห์ผลสอบ
                     </Link>
                     <Link to={`${assignmentBase(a)}/retake`} style={linkBtn}>
                       สอบซ่อม

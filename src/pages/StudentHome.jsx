@@ -12,6 +12,7 @@ import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
 import { typeLabel } from "../constants";
 import { Link } from "react-router-dom";
+import { LEVEL_LABEL } from "../rubricUtils";
 
 const STATUS_LABEL = { late: "สาย", leave: "ลา", absent: "ขาด" };
 const FLAGS = [
@@ -130,11 +131,27 @@ export default function StudentHome() {
               orderBy("dueDate")
             )
           );
-          grouped[subj.id] = aSnap.docs.map((d) => ({
+          const list = aSnap.docs.map((d) => ({
             id: d.id,
             ...d.data(),
             score: scoreByAssignment[d.id] || null,
           }));
+          // โปรเจกต์ที่ให้คะแนนตามเกณฑ์แล้ว: ดึงชื่อเกณฑ์มาแสดงคู่กับระดับของนักเรียน
+          await Promise.all(
+            list.map(async (a) => {
+              if (a.type === "project" && a.score?.rubricLevels) {
+                try {
+                  const cfg = await getDoc(
+                    doc(db, "classrooms", classroomId, "subjects", subj.id, "assignments", a.id, "rubric", "config")
+                  );
+                  if (cfg.exists()) a.rubricCriteria = cfg.data().criteria || [];
+                } catch {
+                  /* อ่านเกณฑ์ไม่ได้ ข้ามไป แสดงแค่คะแนนรวม */
+                }
+              }
+            })
+          );
+          grouped[subj.id] = list;
         }
         setAssignmentsBySubject(grouped);
 
@@ -354,7 +371,27 @@ export default function StudentHome() {
                             กำหนดส่ง {a.dueDate}
                           </div>
                         )}
+                        {a.rubricCriteria && a.score?.rubricLevels && (
+                          <div style={{ marginTop: 6, display: "grid", gap: 3 }}>
+                            {a.rubricCriteria.map((c) => {
+                              const lv = a.score.rubricLevels[c.criterionId];
+                              if (lv === null || lv === undefined) return null;
+                              return (
+                                <div
+                                  key={c.criterionId}
+                                  style={{ fontSize: 13, color: COLORS.muted, display: "flex", justifyContent: "space-between", gap: 8 }}
+                                >
+                                  <span>{c.name}</span>
+                                  <b style={{ color: lv >= 3 ? COLORS.fullText : COLORS.partialText, whiteSpace: "nowrap" }}>
+                                    {LEVEL_LABEL[lv]}
+                                  </b>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
+                      
                       <div style={{ textAlign: "right" }}>
                         <ScoreBadge score={a.score?.score} maxScore={a.maxScore} />
                         {a.score && <ReasonBadges item={a.score} />}
