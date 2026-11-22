@@ -18,6 +18,8 @@ import RubricScoring from "./pages/RubricScoring";
 import OrphanCleanup from "./pages/OrphanCleanup";
 import ExamAnalysis from "./pages/ExamAnalysis";
 import CopyAssignments from "./pages/CopyAssignments";
+import BackupExport from "./pages/BackupExport";
+import AtRiskStudents from "./pages/AtRiskStudents";
 
 import AttendanceEntry from "./pages/AttendanceEntry";
 import AttendanceQR from "./pages/AttendanceQR";
@@ -98,6 +100,10 @@ export default function App() {
             element={<CopyAssignments />}
           />
           
+          <Route path="backup" element={<BackupExport />} />
+
+          <Route path="classroom/:classroomId/risk" element={<AtRiskStudents />} />
+
           <Route
             path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake"
             element={<RetakeSetup />}

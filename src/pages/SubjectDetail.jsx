@@ -153,6 +153,17 @@ export default function SubjectDetail() {
           คัดลอกใบงานจากห้องอื่น
         </Link>
 
+        {" · "}
+        <Link to="/teacher/backup" style={{ color: theme.accent }}>
+          สำรองข้อมูล
+        </Link>
+
+        {" · "}
+        <Link to={`/teacher/classroom/${classroomId}/risk`} style={{ color: theme.accent }}>
+          นักเรียนที่ควรติดตาม
+        </Link>
+
+
       </p>
 
       <div style={{ ...cardStyle, marginBottom: 20 }}>

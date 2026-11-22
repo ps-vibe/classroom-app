@@ -178,6 +178,44 @@ export default function ExamAnalysis() {
     XLSX.writeFile(wb, `วิเคราะห์ผลสอบ_${assignment?.title || "ข้อสอบ"}.xlsx`);
   };
 
+  const exportStatsJson = () => {
+    const linked = result.items.filter((r) => r.bankId);
+    if (linked.length === 0) {
+      alert('ยังไม่มีข้อที่ผูกรหัสข้อในคลัง (กรอกที่ช่อง "รหัสข้อในคลัง" ในหน้าโครงข้อ)');
+      return;
+    }
+    const term = window.prompt("ปีการศึกษา/ภาคเรียนของข้อสอบนี้ (เช่น 2569/1)", "");
+    if (term === null) return;
+    const payload = {
+      format: "item-stats-v1",
+      exportedAt: new Date().toISOString(),
+      term: term.trim(),
+      classroomId,
+      subjectId,
+      assignmentId,
+      assignmentTitle: assignment?.title || "",
+      n: result.N,
+      items: linked.map((r) => ({
+        bankId: r.bankId,
+        no: r.no,
+        topic: r.topic,
+        maxScore: r.max,
+        mean: round2(r.mean),
+        p: round2(r.p),
+        D: r.D === null ? null : round2(r.D),
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `สถิติรายข้อ_${assignment?.title || "ข้อสอบ"}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <div>
       <Link to={`/teacher/classroom/${classroomId}/subject/${subjectId}`} style={{ color: theme.accent, fontSize: 14 }}>
@@ -275,9 +313,14 @@ export default function ExamAnalysis() {
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <h3 style={{ margin: 0, fontSize: 15 }}>รายข้อ</h3>
-              <button type="button" style={btnSecondary} onClick={exportXlsx}>
-                ส่งออก Excel
-              </button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" style={btnSecondary} onClick={exportXlsx}>
+                  ส่งออก Excel
+                </button>
+                <button type="button" style={btnSecondary} onClick={exportStatsJson}>
+                  ส่งออกสถิติไปคลังข้อสอบ
+                </button>
+              </div>
             </div>
             <div style={{ overflowX: "auto", marginTop: 10 }}>
               <table style={{ borderCollapse: "collapse", fontSize: 13, width: "100%", minWidth: 640 }}>
