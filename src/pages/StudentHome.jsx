@@ -10,12 +10,11 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
-import { typeLabel } from "../constants";
+import { typeLabel, ASSIGNMENT_TYPES } from "../constants";
 import { Link } from "react-router-dom";
 import { LEVEL_LABEL } from "../rubricUtils";
 
 const STATUS_LABEL = { late: "สาย", leave: "ลา", absent: "ขาด" };
-
 const COLORS = {
   bg: "#F7F3EC",
   card: "#FFFFFF",
@@ -29,6 +28,12 @@ const COLORS = {
   badgeBg: "#B9631B",
   tabActive: "#3F7A6F",
 };
+
+// ใบงานสอบที่ได้คะแนนต่ำกว่าครึ่ง จะแสดงบรรทัดสอบซ่อมใต้คะแนน
+const needsRetake = (a) =>
+  !!ASSIGNMENT_TYPES.find((t) => t.value === a.type)?.isExam &&
+  a.score?.score != null &&
+  Number(a.score.score) < Number(a.maxScore) / 2;
 
 function ScoreBadge({ score, maxScore }) {
   if (score == null) return <span style={{ color: COLORS.muted, fontSize: 14 }}>ยังไม่ให้คะแนน</span>;
@@ -48,34 +53,6 @@ function ScoreBadge({ score, maxScore }) {
     >
       {score} / {maxScore}
     </span>
-  );
-}
-
-function ReasonBadges({ item }) {
-  const active = FLAGS.filter((f) => item[f.key]);
-  if (active.length === 0) return null;
-  return (
-    <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-      {active.map((f) => (
-        <span
-          key={f.key}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 26,
-            height: 26,
-            borderRadius: 8,
-            background: COLORS.badgeBg,
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: 14,
-          }}
-        >
-          {f.symbol}
-        </span>
-      ))}
-    </div>
   );
 }
 
@@ -131,7 +108,7 @@ export default function StudentHome() {
             ...d.data(),
             score: scoreByAssignment[d.id] || null,
           }));
-          // โปรเจกต์ที่ให้คะแนนตามเกณฑ์แล้ว: ดึงชื่อเกณฑ์มาแสดงคู่กับระดับของนักเรียน
+          // ใบงานที่ให้คะแนนตามเกณฑ์แล้ว: ดึงชื่อเกณฑ์มาแสดงคู่กับระดับของนักเรียน
           await Promise.all(
             list.map(async (a) => {
               if (a.score?.rubricLevels) {
@@ -167,7 +144,7 @@ export default function StudentHome() {
         });
         setLogTotals(totals);
 
-              try {
+        try {
           const rtSnap = await getDocs(
             query(
               collection(db, "classrooms", classroomId, "retakeAttempts"),
@@ -178,7 +155,6 @@ export default function StudentHome() {
         } catch {
           /* ยังไม่มีข้อสอบซ่อม หรือกฎยังไม่เปิดให้อ่าน ข้ามไป */
         }
-
       } catch {
         setError("โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -204,7 +180,6 @@ export default function StudentHome() {
         .map((a) => ({ ...a, subjectName: subj.name }))
     )
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  
 
   const fmt = (iso) => new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
   const nowMs = Date.now();
@@ -216,8 +191,7 @@ export default function StudentHome() {
     fontSize: 14, textDecoration: "none", background: COLORS.tabActive, color: "#fff",
   };
 
-
-    const tabBtn = (key, label) => (
+  const tabBtn = (key, label) => (
     <button
       onClick={() => setTab(key)}
       style={{
@@ -277,7 +251,7 @@ export default function StudentHome() {
         </div>
 
         {error && <p style={{ color: "#C0392B" }}>{error}</p>}
-                {dueSoon.length > 0 && (
+        {dueSoon.length > 0 && (
           <div
             style={{
               ...cardStyle,
@@ -313,7 +287,7 @@ export default function StudentHome() {
 
         {tab === "scores" && (
           <>
-                      {retakeCards.map((r) => (
+            {retakeCards.map((r) => (
               <div key={r.examId} style={{ ...cardStyle, border: `1px solid ${COLORS.partialBg}` }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: COLORS.badgeBg }}>📝 สอบซ่อม: {r.title}</div>
                 <div style={{ color: COLORS.muted, fontSize: 13, margin: "6px 0 10px" }}>
@@ -340,7 +314,7 @@ export default function StudentHome() {
                 {(assignmentsBySubject[subj.id] || []).length === 0 ? (
                   <p style={{ color: COLORS.muted, margin: 0 }}>ยังไม่มีใบงาน</p>
                 ) : (
-                  assignmentsBySubject[subj.id].map((a, i, arr) => (
+                  assignmentsBySubject[subj.id].map((a, i) => (
                     <div
                       key={a.id}
                       style={{
@@ -384,7 +358,15 @@ export default function StudentHome() {
 
                       <div style={{ textAlign: "right" }}>
                         <ScoreBadge score={a.score?.score} maxScore={a.maxScore} />
-                        {a.score && <ReasonBadges item={a.score} />}
+                        {needsRetake(a) && (
+                          <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, color: COLORS.partialText }}>
+                            {a.score.retakeScore != null ? (
+                              `สอบซ่อม ${a.score.retakeScore} / ${a.maxScore}`
+                            ) : (
+                              <span style={{ color: COLORS.muted, fontWeight: 400 }}>สอบซ่อม: ยังไม่มีคะแนน</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
