@@ -20,6 +20,16 @@ const round2 = (n) => Math.round(n * 100) / 100;
 const newId = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 const SHOWN_LEVELS = [1, 2, 3, 4];
 const EMPTY_ROW = { levels: {}, daysLate: "" };
+const submText = (v) =>
+  v.state === "not_submitted"
+    ? "Classroom: ยังไม่ส่ง"
+    : v.state === "returned"
+    ? "Classroom: คืนงานแล้ว (ไม่ทราบวันที่ส่ง)"
+    : v.daysLate > 0
+    ? `Classroom: ส่งช้า ${v.daysLate} วัน`
+    : v.lateFlag
+    ? "Classroom: ส่งช้า (ไม่ทราบจำนวนวัน)"
+    : "Classroom: ส่งตรงเวลา";
 
 function LevelButtons({ value, onPick }) {
   return (
@@ -62,6 +72,7 @@ export default function RubricScoring() {
   const [showGroupEditor, setShowGroupEditor] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [problems, setProblems] = useState([]);
+  const [subm, setSubm] = useState({});  
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -101,6 +112,30 @@ export default function RubricScoring() {
           }
         });
         setRatings(init);
+        try {
+          const sbSnap = await getDocs(
+            query(collection(db, "classrooms", classroomId, "submissions"), where("assignmentId", "==", assignmentId))
+          );
+          const sb = {};
+          sbSnap.docs.forEach((d) => {
+            sb[d.data().studentCode] = d.data();
+          });
+          if (!cancelled) {
+            setSubm(sb);
+            setRatings((prev) => {
+              const next = { ...prev };
+              Object.entries(sb).forEach(([code, v]) => {
+                const cur = next[code];
+                if ((!cur || cur.daysLate === "") && typeof v.daysLate === "number") {
+                  next[code] = { levels: cur?.levels || {}, daysLate: String(v.daysLate) };
+                }
+              });
+              return next;
+            });
+          }
+        } catch {
+          /* ยังไม่ได้นำเข้าสถานะส่งงาน หรือยังไม่มีสิทธิ์อ่าน */
+        }
       } catch {
         if (!cancelled) setError("โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -421,6 +456,7 @@ export default function RubricScoring() {
                 <span style={{ fontSize: 12, color: theme.muted }}>
                   {levelOf(s, c) !== null ? `ระดับ ${levelOf(s, c)}` : "วัน"}
                 </span>
+                {subm[s.id] && <span style={{ fontSize: 11, color: theme.muted }}>{submText(subm[s.id])}</span>}
               </div>
             ) : (
               <LevelButtons value={getRow(s.id).levels?.[c.criterionId] ?? null} onPick={(l) => toggleLevel(s.id, c.criterionId, l)} />

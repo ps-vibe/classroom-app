@@ -15,13 +15,17 @@ import { db } from "../firebase";
 import { ASSIGNMENT_TYPES, typeLabel } from "../constants";
 import { theme, cardStyle, btnSecondary, btnTeal, inputStyle } from "../theme";
 
-const FLAGS = [
-  { key: "late", symbol: "L", title: "ส่งงานช้ากว่ากำหนด ," },
-  { key: "accuracy", symbol: "%", title: "ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ70 ," },
-  { key: "clean", symbol: "C", title: "งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด" },
-];
+const emptyRow = { score: "", retake: "" };
 
-const emptyRow = { score: "", late: false, accuracy: false, clean: false, retake: "" };
+// ป้ายสถานะการส่งงานจากข้อมูลที่นำเข้าจาก Google Classroom
+function submInfo(v) {
+  if (!v) return null;
+  if (v.state === "not_submitted") return { key: "not", text: "ยังไม่ส่ง", bg: "#FEE2E2", color: "#B91C1C" };
+  if (v.state === "returned") return { key: "ret", text: "คืนงานแล้ว", bg: "#E5E7EB", color: "#374151" };
+  if (v.daysLate > 0) return { key: "late", text: `ส่งช้า ${v.daysLate} วัน`, bg: "#FEF3C7", color: "#92400E" };
+  if (v.lateFlag) return { key: "late", text: "ส่งช้า (ไม่ทราบจำนวนวัน)", bg: "#FEF3C7", color: "#92400E" };
+  return { key: "ok", text: "ส่งตรงเวลา", bg: "#DCFCE7", color: "#166534" };
+}
 
 export default function ScoreEntry() {
   const { classroomId, subjectId, assignmentId } = useParams();
@@ -29,6 +33,7 @@ export default function ScoreEntry() {
   const [students, setStudents] = useState([]);
   const [rows, setRows] = useState({});
   const [itemTotals, setItemTotals] = useState({});
+  const [subm, setSubm] = useState({});
   const [dirty, setDirty] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -52,9 +57,6 @@ export default function ScoreEntry() {
           const v = d.data();
           initial[v.studentCode] = {
             score: v.score ?? "",
-            late: !!v.late,
-            accuracy: !!v.accuracy,
-            clean: !!v.clean,
             retake: v.retakeScore ?? "",
           };
         });
@@ -75,6 +77,20 @@ export default function ScoreEntry() {
         } catch {
           /* ยังไม่มีคะแนนรายข้อ หรือยังไม่มีสิทธิ์อ่าน */
         }
+
+        // สถานะการส่งงานที่นำเข้าจาก Google Classroom (ถ้ามี)
+        try {
+          const sbSnap = await getDocs(
+            query(collection(db, "classrooms", classroomId, "submissions"), where("assignmentId", "==", assignmentId))
+          );
+          const sb = {};
+          sbSnap.docs.forEach((d) => {
+            sb[d.data().studentCode] = d.data();
+          });
+          setSubm(sb);
+        } catch {
+          /* ยังไม่ได้นำเข้า หรือยังไม่มีสิทธิ์อ่าน */
+        }
       } catch {
         setError("โหลดข้อมูลไม่สำเร็จ");
       } finally {
@@ -88,11 +104,16 @@ export default function ScoreEntry() {
   if (!assignment) return <p>ไม่พบใบงานนี้</p>;
 
   const max = assignment.maxScore;
-  const typeInfo = ASSIGNMENT_TYPES.find((t) => t.value === assignment.type);
-  const isExam = !!typeInfo?.isExam;
-  const hasFlags = !!typeInfo?.hasFlags;
+  const isExam = !!ASSIGNMENT_TYPES.find((t) => t.value === assignment.type)?.isExam;
   const hasItemTotals = isExam && Object.keys(itemTotals).length > 0;
+  const hasSubm = Object.keys(subm).length > 0;
   const belowHalf = (score) => isExam && score !== "" && Number(score) < max / 2;
+
+  const submCount = { ok: 0, late: 0, not: 0, ret: 0 };
+  students.forEach((s) => {
+    const info = submInfo(subm[s.id]);
+    if (info) submCount[info.key] += 1;
+  });
 
   const updateRow = (code, patch) => {
     setRows((prev) => ({ ...prev, [code]: { ...prev[code], ...patch } }));
@@ -155,7 +176,6 @@ export default function ScoreEntry() {
     try {
       for (let i = 0; i < codes.length; i += 400) {
         const batch = writeBatch(db);
-
         codes.slice(i, i + 400).forEach((code) => {
           const r = rows[code];
           const ref = doc(db, "classrooms", classroomId, "scores", `${assignmentId}_${code}`);
@@ -177,7 +197,6 @@ export default function ScoreEntry() {
             );
           }
         });
-
         await batch.commit();
       }
       setDirty(new Set());
@@ -200,9 +219,9 @@ export default function ScoreEntry() {
         {assignment.title} <span style={{ color: theme.muted, fontWeight: 400, fontSize: 16 }}>[{typeLabel(assignment.type)}]</span>
       </h2>
       <p style={{ color: theme.muted, marginBottom: 8 }}>คะแนนเต็ม {max} | กำหนดส่ง {assignment.dueDate}</p>
-      {hasFlags && (
-        <p style={{ fontSize: 13, color: theme.muted, marginBottom: 16 }}>
-          L = ส่งงานช้ากว่ากำหนด , &nbsp; % = ความถูกต้อง-สมบูรณ์ของงานน้อยกว่าร้อยละ 70 , &nbsp; C = งานไม่เป็นระเบียบเรียบร้อย-ไม่สะอาด
+      {hasSubm && (
+        <p style={{ fontSize: 13, color: theme.muted, marginBottom: 12 }}>
+          สถานะส่งงานจาก Google Classroom: ส่งตรงเวลา {submCount.ok} · ส่งช้า {submCount.late} · ยังไม่ส่ง {submCount.not} · คืนงานแล้ว {submCount.ret}
         </p>
       )}
 
@@ -231,7 +250,7 @@ export default function ScoreEntry() {
                   <th style={cell}>ชื่อ-นามสกุล</th>
                   <th style={cell}>คะแนน</th>
                   {hasItemTotals && <th style={cell}>รวมจากรายข้อ</th>}
-                  {hasFlags && <th style={cell}>เหตุผลที่ไม่ได้เต็ม</th>}
+                  {hasSubm && <th style={cell}>สถานะส่งงาน (Classroom)</th>}
                   {isExam && <th style={cell}>ซ่อม</th>}
                 </tr>
               </thead>
@@ -242,6 +261,7 @@ export default function ScoreEntry() {
                   const itemTotal = itemTotals[s.id];
                   const hasItem = itemTotal !== undefined;
                   const same = hasItem && r.score !== "" && Number(r.score) === Number(itemTotal);
+                  const info = submInfo(subm[s.id]);
                   return (
                     <tr key={s.id} style={low ? { background: "#FEF2F2" } : undefined}>
                       <td style={cell}>{s.no}</td>
@@ -267,29 +287,26 @@ export default function ScoreEntry() {
                           )}
                         </td>
                       )}
-                      {hasFlags && (
+                      {hasSubm && (
                         <td style={cell}>
-                          {FLAGS.map((f) => (
-                            <button
-                              key={f.key}
-                              type="button"
-                              title={f.title}
-                              onClick={() => updateRow(s.id, { [f.key]: !r[f.key] })}
+                          {info ? (
+                            <span
                               style={{
-                                marginRight: 4,
-                                width: 32,
-                                height: 32,
+                                display: "inline-block",
+                                padding: "2px 10px",
+                                borderRadius: 999,
+                                fontSize: 12,
                                 fontWeight: 700,
-                                cursor: "pointer",
-                                border: `1px solid ${theme.border}`,
-                                borderRadius: 8,
-                                background: r[f.key] ? theme.teal : "#fff",
-                                color: r[f.key] ? "#fff" : theme.text,
+                                background: info.bg,
+                                color: info.color,
+                                whiteSpace: "nowrap",
                               }}
                             >
-                              {f.symbol}
-                            </button>
-                          ))}
+                              {info.text}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
                         </td>
                       )}
                       {isExam && (

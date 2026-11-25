@@ -20,6 +20,7 @@ import ExamAnalysis from "./pages/ExamAnalysis";
 import CopyAssignments from "./pages/CopyAssignments";
 import BackupExport from "./pages/BackupExport";
 import AtRiskStudents from "./pages/AtRiskStudents";
+import ClassroomImport from "./pages/ClassroomImport";
 
 import AttendanceEntry from "./pages/AttendanceEntry";
 import AttendanceQR from "./pages/AttendanceQR";
@@ -53,61 +54,23 @@ export default function App() {
           <Route path="classroom/:classroomId" element={<ClassroomDetail />} />
           <Route path="classroom/:classroomId/students" element={<Students />} />
           <Route path="classroom/:classroomId/subject/:subjectId" element={<SubjectDetail />} />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/attendance"
-            element={<AttendanceEntry />}
-          />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/attendance/qr"
-            element={<AttendanceQR />}
-          />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/attendance/summary"
-            element={<AttendanceSummary />}
-          />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores"
-            element={<ScoreEntry />}
-          />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/items"
-            element={<ExamItems />}
-          />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/item-scores"
-            element={<ExamItemScores />}
-          />
+          <Route path="classroom/:classroomId/subject/:subjectId/attendance"  element={<AttendanceEntry />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/attendance/qr" element={<AttendanceQR />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/attendance/summary" element={<AttendanceSummary />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/scores" element={<ScoreEntry />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/items" element={<ExamItems />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/item-scores" element={<ExamItemScores />} />
           <Route path="rubric-criteria" element={<RubricLibrary />} />
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/rubric"
-            element={<RubricSetup />}
-          />
-          
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/rubric-scoring"
-            element={<RubricScoring />}
-          />
-
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/rubric"  element={<RubricSetup />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/rubric-scoring" element={<RubricScoring />} />
           <Route path="cleanup" element={<OrphanCleanup />} />
-
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/analysis"
-            element={<ExamAnalysis />}
-          />
-
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/copy-assignments"
-            element={<CopyAssignments />}
-          />
-          
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/analysis" element={<ExamAnalysis />} />
+          <Route path="classroom/:classroomId/subject/:subjectId/copy-assignments" element={<CopyAssignments />} />
           <Route path="backup" element={<BackupExport />} />
-
           <Route path="classroom/:classroomId/risk" element={<AtRiskStudents />} />
-
-          <Route
-            path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake"
-            element={<RetakeSetup />}
-          />
+          <Route path="classroom/:classroomId/gc-import" element={<ClassroomImport />} />
+          
+          <Route path="classroom/:classroomId/subject/:subjectId/assignment/:assignmentId/retake" element={<RetakeSetup />} />
 
         </Route>
       )}

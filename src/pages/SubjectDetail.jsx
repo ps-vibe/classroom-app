@@ -163,6 +163,10 @@ export default function SubjectDetail() {
           นักเรียนที่ควรติดตาม
         </Link>
 
+        {" · "}
+        <Link to={`/teacher/classroom/${classroomId}/gc-import`} style={{ color: theme.accent }}>
+          นำเข้าจาก Google Classroom
+        </Link>
 
       </p>
 

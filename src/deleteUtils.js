@@ -89,11 +89,12 @@ async function deleteAssignmentChildren(classroomId, subjectId, assignmentId) {
   }
 }
 
-// ลบใบงาน 1 ชิ้น พร้อมคะแนน ข้อมูลสอบซ่อม และข้อมูลลูกทั้งหมดใต้ใบงานนั้น
+// ลบใบงาน 1 ชิ้น พร้อมคะแนน สถานะการส่งงาน ข้อมูลสอบซ่อม และข้อมูลลูกทั้งหมดใต้ใบงานนั้น
 export async function deleteAssignmentCascade(classroomId, subjectId, assignmentId) {
   await deleteRetakeData(classroomId, [assignmentId]);
   await deleteAssignmentChildren(classroomId, subjectId, assignmentId);
   await deleteWhere(collection(db, "classrooms", classroomId, "scores"), "assignmentId", assignmentId);
+  await deleteWhere(collection(db, "classrooms", classroomId, "submissions"), "assignmentId", assignmentId);
   await deleteDoc(
     doc(db, "classrooms", classroomId, "subjects", subjectId, "assignments", assignmentId)
   );
@@ -110,6 +111,7 @@ export async function deleteSubjectCascade(classroomId, subjectId) {
   }
   await deleteAllDocs(aSnap.docs);
   await deleteWhere(collection(db, "classrooms", classroomId, "scores"), "subjectId", subjectId);
+  await deleteWhere(collection(db, "classrooms", classroomId, "submissions"), "subjectId", subjectId);
   await deleteWhere(collection(db, "classrooms", classroomId, "attendance"), "subjectId", subjectId);
   await deleteWhere(collection(db, "classrooms", classroomId, "attendanceLog"), "subjectId", subjectId);
   await deleteWhere(collection(db, "classrooms", classroomId, "attendanceSessions"), "subjectId", subjectId);
@@ -117,9 +119,11 @@ export async function deleteSubjectCascade(classroomId, subjectId) {
   await deleteDoc(doc(db, "classrooms", classroomId, "subjects", subjectId));
 }
 
-// ลบนักเรียน 1 คน พร้อมคะแนน คะแนนรายข้อ การเช็คคาบเรียน รายการสแกน QR และผลสอบซ่อมของคนนั้น
+// ลบนักเรียน 1 คน พร้อมคะแนน สถานะการส่งงาน คะแนนรายข้อ การเช็คคาบเรียน รายการสแกน QR และผลสอบซ่อมของคนนั้น
 export async function deleteStudentCascade(classroomId, studentCode) {
   await deleteWhere(collection(db, "classrooms", classroomId, "scores"), "studentCode", studentCode);
+  await deleteWhere(collection(db, "classrooms", classroomId, "submissions"), "studentCode", studentCode);
+  await deleteWhere(collection(db, "classrooms", classroomId, "gcStudents"), "studentCode", studentCode);
   await deleteWhere(collection(db, "classrooms", classroomId, "attendance"), "studentCode", studentCode);
   await deleteWhere(collection(db, "classrooms", classroomId, "attendanceScans"), "studentCode", studentCode);
   await deleteWhere(collection(db, "classrooms", classroomId, "retakeAttempts"), "studentCode", studentCode);
@@ -154,6 +158,8 @@ export async function deleteClassroomCascade(classroomId) {
   await deleteWhole(collection(db, "classrooms", classroomId, "subjects"));
   await deleteWhole(collection(db, "classrooms", classroomId, "students"));
   await deleteWhole(collection(db, "classrooms", classroomId, "scores"));
+  await deleteWhole(collection(db, "classrooms", classroomId, "submissions"));
+  await deleteWhole(collection(db, "classrooms", classroomId, "gcStudents"));
   await deleteWhole(collection(db, "classrooms", classroomId, "attendance"));
   await deleteWhole(collection(db, "classrooms", classroomId, "attendanceLog"));
   await deleteWhole(collection(db, "classrooms", classroomId, "attendanceScans"));
