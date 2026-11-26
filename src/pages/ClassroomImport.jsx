@@ -29,12 +29,45 @@ const g = (row, ...names) => {
 };
 
 const parseDT = (s) => {
-  const m = String(s || "").match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-  if (!m) return null;
-  const [, y, mo, d, hh = "0", mi = "0", ss = "0"] = m;
+  const str = String(s || "").trim();
+  if (!str) return null;
+  let y;
+  let mo;
+  let d;
+  let rest;
+  let m = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) {
+    y = Number(m[1]);
+    mo = Number(m[2]);
+    d = Number(m[3]);
+    rest = str.slice(m[0].length);
+  } else {
+    m = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+    if (!m) return null;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    y = Number(m[3]);
+    // ปกติอ่านเป็น วัน-เดือน-ปี ยกเว้นตัวที่สองมากกว่า 12 ให้อ่านเป็น เดือน-วัน-ปี
+    if (b > 12 && a <= 12) {
+      mo = a;
+      d = b;
+    } else {
+      d = a;
+      mo = b;
+    }
+    rest = str.slice(m[0].length);
+  }
+  if (y < 100) y += 2000;
+  if (y > 2400) y -= 543;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const t = rest.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const hh = t ? Number(t[1]) : 0;
+  const mi = t ? Number(t[2]) : 0;
+  const ss = t && t[3] ? Number(t[3]) : 0;
+  const pad = (n) => String(n).padStart(2, "0");
   return {
-    date: `${y}-${mo}-${d}`,
-    ms: new Date(+y, +mo - 1, +d, +hh, +mi, +ss).getTime(),
+    date: `${y}-${pad(mo)}-${pad(d)}`,
+    ms: new Date(y, mo - 1, d, hh, mi, ss).getTime(),
   };
 };
 

@@ -37,7 +37,7 @@ async function fetchLibrary() {
 
 async function fetchClassroom(classroomId) {
   const col = (...p) => collection(db, "classrooms", classroomId, ...p);
-  const [roomSnap, stSnap, subjSnap, scSnap, atSnap, logSnap, exSnap, ppSnap, raSnap] = await Promise.all([
+  const [roomSnap, stSnap, subjSnap, scSnap, atSnap, logSnap, exSnap, ppSnap, raSnap, sbSnap] = await Promise.all([
     getDoc(doc(db, "classrooms", classroomId)),
     getDocs(col("students")),
     getDocs(col("subjects")),
@@ -47,6 +47,7 @@ async function fetchClassroom(classroomId) {
     getDocs(col("retakeExams")),
     getDocs(col("retakePapers")),
     getDocs(col("retakeAttempts")),
+    getDocs(col("submissions")),
   ]);
 
   const subjects = [];
@@ -80,6 +81,7 @@ async function fetchClassroom(classroomId) {
     retakeExams: exSnap.docs.map(toObj),
     retakePapers: ppSnap.docs.map(toObj),
     retakeAttempts: raSnap.docs.map(toObj),
+    submissions: sbSnap.docs.map(toObj),
   };
 }
 

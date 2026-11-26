@@ -18,6 +18,7 @@ const FLAG_STYLE = {
   ติดซ่อมค้าง: { bg: "#FEE2E2", color: "#B91C1C" },
   เข้าเรียนต่ำ: { bg: "#FEF3C7", color: "#92400E" },
   คะแนนต่ำ: { bg: "#FEE2E2", color: "#B91C1C" },
+  ส่งช้าบ่อย: { bg: "#FEF3C7", color: "#92400E" },
 };
 
 const groupBySubject = (list, fmt) => {
@@ -36,6 +37,7 @@ export default function AtRiskStudents() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [missingMin, setMissingMin] = useState("2");
+  const [lateMin, setLateMin] = useState("3");
   const [attMin, setAttMin] = useState("80");
   const [scoreMin, setScoreMin] = useState("50");
   const [subjectFilter, setSubjectFilter] = useState("all");
@@ -63,6 +65,14 @@ export default function AtRiskStudents() {
             assignments: aSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
           });
         }
+        // สถานะการส่งงานที่นำเข้าจาก Google Classroom (ถ้ามี)
+        let subm = [];
+        try {
+          const smSnap = await getDocs(col("submissions"));
+          subm = smSnap.docs.map((d) => d.data());
+        } catch {
+          /* ยังไม่ได้นำเข้า หรือยังไม่มีสิทธิ์อ่าน */
+        }
         if (cancelled) return;
         setRoomName(roomSnap.exists() ? roomSnap.data().name || "" : "");
         setData({
@@ -71,6 +81,7 @@ export default function AtRiskStudents() {
           scores: scSnap.docs.map((d) => d.data()),
           attendance: atSnap.docs.map((d) => d.data()),
           logs: lgSnap.docs.map((d) => d.data()),
+          subm,
         });
       } catch {
         if (!cancelled) setError("โหลดข้อมูลไม่สำเร็จ");
@@ -87,21 +98,29 @@ export default function AtRiskStudents() {
 
   const th = {
     missing: Math.max(1, Number(missingMin) || 1),
+    late: Math.max(1, Number(lateMin) || 1),
     att: Number(attMin) || 0,
     score: Number(scoreMin) || 0,
   };
   const today = todayLocal();
 
   let rows = [];
+  const awaiting = {};
   if (data) {
     const scoreMap = {};
     data.scores.forEach((sc) => {
       scoreMap[`${sc.assignmentId}_${sc.studentCode}`] = sc;
     });
+    const submMap = {};
+    data.subm.forEach((sb) => {
+      submMap[`${sb.assignmentId}_${sb.studentCode}`] = sb;
+    });
     const subjList = subjectFilter === "all" ? data.subjects : data.subjects.filter((s) => s.id === subjectFilter);
 
     rows = data.students.map((st) => {
       const missingList = [];
+      const awaitList = [];
+      const lateList = [];
       const retakeList = [];
       const attLow = [];
       const scoreLow = [];
@@ -111,15 +130,26 @@ export default function AtRiskStudents() {
         let sumMax = 0;
         subj.assignments.forEach((a) => {
           const sc = scoreMap[`${a.id}_${st.id}`];
+          const sb = submMap[`${a.id}_${st.id}`];
           const has = !!sc && sc.score !== null && sc.score !== undefined;
           const max = Number(a.maxScore) || 0;
+          const turnedIn = !!sb && (sb.state === "submitted" || sb.state === "returned");
+
           if (a.dueDate && a.dueDate < today) {
             if (has) {
               sumScore += Number(sc.score);
               sumMax += max;
-            } else {
-              missingList.push({ subject: subj.name, title: a.title });
+            } else if (!turnedIn) {
+              missingList.push({ subject: subj.name, title: a.title, viaGc: !!sb });
             }
+          }
+          if (!has && turnedIn) {
+            awaitList.push({ subject: subj.name, title: a.title });
+            const key = `${subj.name}: ${a.title}`;
+            awaiting[key] = (awaiting[key] || 0) + 1;
+          }
+          if (sb && typeof sb.daysLate === "number" && sb.daysLate > 0) {
+            lateList.push({ subject: subj.name, title: a.title, days: sb.daysLate });
           }
           if (isExamType(a.type) && has && Number(sc.score) < max / 2 && (sc.retakeScore === null || sc.retakeScore === undefined)) {
             retakeList.push({ subject: subj.name, title: `${a.title} (${sc.score}/${max})` });
@@ -147,7 +177,8 @@ export default function AtRiskStudents() {
       if (retakeList.length > 0) flags.push("ติดซ่อมค้าง");
       if (attLow.length > 0) flags.push("เข้าเรียนต่ำ");
       if (scoreLow.length > 0) flags.push("คะแนนต่ำ");
-      return { st, missingList, retakeList, attLow, scoreLow, flags };
+      if (lateList.length >= th.late) flags.push("ส่งช้าบ่อย");
+      return { st, missingList, awaitList, lateList, retakeList, attLow, scoreLow, flags };
     });
   }
 
@@ -156,6 +187,10 @@ export default function AtRiskStudents() {
     (a, b) => b.flags.length - a.flags.length || (a.st.no || 0) - (b.st.no || 0)
   );
   const nameOf = (s) => `${s.prefix || ""}${s.firstName || ""} ${s.lastName || ""}`.trim();
+  const awaitingEntries = Object.entries(awaiting).sort((a, b) => b[1] - a[1]);
+  const hasSubm = !!data && data.subm.length > 0;
+
+  const missingText = (list) => groupBySubject(list, (x) => `${x.title}${x.viaGc ? " (ตาม Classroom)" : ""}`);
 
   const exportXlsx = () => {
     const out = visible.map((r) => ({
@@ -163,7 +198,9 @@ export default function AtRiskStudents() {
       รหัสประจำตัว: r.st.id,
       "ชื่อ-นามสกุล": nameOf(r.st),
       สัญญาณเสี่ยง: r.flags.join(", "),
-      ค้างส่งงาน: groupBySubject(r.missingList, (x) => x.title).join(" | "),
+      ค้างส่งงาน: missingText(r.missingList).join(" | "),
+      ส่งช้า: groupBySubject(r.lateList, (x) => `${x.title} ${x.days} วัน`).join(" | "),
+      "ส่งแล้วแต่ยังไม่ได้บันทึกคะแนน": groupBySubject(r.awaitList, (x) => x.title).join(" | "),
       ติดซ่อมค้าง: groupBySubject(r.retakeList, (x) => x.title).join(" | "),
       เข้าเรียนต่ำ: r.attLow.map((x) => `${x.subject} ${x.pct}%`).join(" | "),
       คะแนนต่ำ: r.scoreLow.map((x) => `${x.subject} ${x.pct}%`).join(" | "),
@@ -184,7 +221,7 @@ export default function AtRiskStudents() {
       <Link to="/teacher" style={{ color: theme.accent, fontSize: 14 }}>&larr; กลับหน้าหลัก</Link>
       <h2 style={{ margin: "12px 0 4px", fontSize: 20 }}>นักเรียนที่ควรติดตาม{roomName ? `: ${roomName}` : ""}</h2>
       <p style={{ margin: "0 0 16px", color: theme.muted, fontSize: 13 }}>
-        สรุปจากข้อมูลที่มีในระบบ ณ วันนี้ ({today})
+        สรุปจากข้อมูลที่มีในระบบ ณ วันนี้ ({today}){hasSubm ? " · ใช้สถานะส่งงานจาก Google Classroom" : " · ยังไม่ได้นำเข้าสถานะส่งงานจาก Google Classroom"}
       </p>
       {error && <p style={{ color: theme.danger }}>{error}</p>}
 
@@ -192,7 +229,8 @@ export default function AtRiskStudents() {
         <>
           <div style={{ ...cardStyle, marginBottom: 16, fontSize: 14, display: "grid", gap: 10 }}>
             <div>
-              ค้างส่งงานตั้งแต่<input type="number" min="1" value={missingMin} onChange={(e) => setMissingMin(e.target.value)} style={numInput} />ใบ
+            ค้างส่งงานตั้งแต่<input type="number" min="1" value={missingMin} onChange={(e) => setMissingMin(e.target.value)} style={numInput} />งาน
+              · ส่งช้าตั้งแต่<input type="number" min="1" value={lateMin} onChange={(e) => setLateMin(e.target.value)} style={numInput} />วัน
               · เข้าเรียนต่ำกว่า<input type="number" min="0" max="100" value={attMin} onChange={(e) => setAttMin(e.target.value)} style={numInput} />%
               · คะแนนต่ำกว่า<input type="number" min="0" max="100" value={scoreMin} onChange={(e) => setScoreMin(e.target.value)} style={numInput} />%
             </div>
@@ -213,13 +251,23 @@ export default function AtRiskStudents() {
             </div>
           </div>
 
+          {awaitingEntries.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: 16, background: "#F0F9FF", borderColor: "#BAE6FD" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>ส่งแล้วแต่ยังไม่ได้บันทึกคะแนน (ครูรอตรวจ/รอกรอก)</div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, display: "grid", gap: 2 }}>
+                {awaitingEntries.slice(0, 12).map(([k, n]) => (
+                  <li key={k}>{k} — {n} คน</li>
+                ))}
+              </ul>
+              {awaitingEntries.length > 12 && <p style={{ margin: "6px 0 0", fontSize: 12, color: theme.muted }}>...และอีก {awaitingEntries.length - 12} งาน</p>}
+            </div>
+          )}
+
           <p style={{ fontSize: 15 }}>
             <b>{flaggedCount}</b> จาก {rows.length} คน มีสัญญาณเสี่ยง
           </p>
 
-          {visible.length === 0 && (
-            <p style={{ color: theme.success }}>ไม่มีนักเรียนที่เข้าเกณฑ์ตอนนี้</p>
-          )}
+          {visible.length === 0 && <p style={{ color: theme.success }}>ไม่มีนักเรียนที่เข้าเกณฑ์ตอนนี้</p>}
 
           <div style={{ display: "grid", gap: 10 }}>
             {visible.map((r) => (
@@ -246,10 +294,12 @@ export default function AtRiskStudents() {
                     ))}
                   </div>
                 </div>
-                {r.flags.length > 0 && (
+                {(r.flags.length > 0 || r.awaitList.length > 0) && (
                   <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13, color: theme.muted, display: "grid", gap: 2 }}>
                     {r.flags.includes("ค้างส่งงาน") &&
-                      groupBySubject(r.missingList, (x) => x.title).map((t) => <li key={`m-${t}`}>ค้างส่ง {t}</li>)}
+                      missingText(r.missingList).map((t) => <li key={`m-${t}`}>ค้างส่ง {t}</li>)}
+                    {r.flags.includes("ส่งช้าบ่อย") &&
+                      groupBySubject(r.lateList, (x) => `${x.title} ${x.days} วัน`).map((t) => <li key={`l-${t}`}>ส่งช้า {t}</li>)}
                     {r.flags.includes("ติดซ่อมค้าง") &&
                       groupBySubject(r.retakeList, (x) => x.title).map((t) => <li key={`r-${t}`}>ติดซ่อม {t}</li>)}
                     {r.attLow.map((x) => (
@@ -258,6 +308,10 @@ export default function AtRiskStudents() {
                     {r.scoreLow.map((x) => (
                       <li key={`s-${x.subject}`}>คะแนนรวม {x.subject} {x.pct}% (ของงานที่ตรวจแล้ว)</li>
                     ))}
+                    {r.awaitList.length > 0 &&
+                      groupBySubject(r.awaitList, (x) => x.title).map((t) => (
+                        <li key={`w-${t}`} style={{ color: "#0369A1" }}>ส่งแล้ว ยังไม่ได้บันทึกคะแนน {t}</li>
+                      ))}
                   </ul>
                 )}
               </div>
@@ -267,11 +321,13 @@ export default function AtRiskStudents() {
           <details style={{ ...cardStyle, marginTop: 16, fontSize: 13 }}>
             <summary style={{ cursor: "pointer", fontWeight: 700 }}>วิธีคำนวณและข้อควรระวัง</summary>
             <ul style={{ margin: "8px 0 0", paddingLeft: 20, display: "grid", gap: 4 }}>
-              <li>ระบบแยกไม่ได้ว่า "ไม่ส่งงาน" หรือ "ส่งแล้วแต่ยังไม่ได้บันทึกคะแนน" ถ้าใบงานเลยกำหนดแล้วยังไม่มีคะแนน จะนับเป็นค้างส่ง ควรกรอกคะแนนให้ครบก่อนดูหน้านี้</li>
-              <li>ติดซ่อมค้าง นับเฉพาะใบงานสอบที่คะแนนต่ำกว่าครึ่งและยังไม่มีคะแนนซ่อม</li>
+              <li>ค้างส่งงาน: ใบงานเลยกำหนดส่ง ยังไม่มีคะแนน และ Classroom บอกว่ายังไม่ส่ง (ถ้าใบงานนั้นไม่มีข้อมูลจาก Classroom จะนับว่าค้างเมื่อยังไม่มีคะแนน ซึ่งแยกไม่ได้ว่าไม่ส่งหรือยังไม่ได้บันทึก)</li>
+              <li>ส่งแล้วแต่ยังไม่ได้บันทึกคะแนน: Classroom บอกว่าส่งหรือคืนงานแล้ว แต่ในระบบยังไม่มีคะแนน ไม่นับเป็นสัญญาณเสี่ยงของนักเรียน</li>
+              <li>ส่งช้าบ่อย: นับใบงานที่ Classroom บอกว่าส่งช้าและคำนวณจำนวนวันได้ (งานที่คืนแล้วไม่ทราบวันส่ง จึงไม่ถูกนับ)</li>
+              <li>ติดซ่อมค้าง: ใบงานสอบที่คะแนนต่ำกว่าครึ่งและยังไม่มีคะแนนซ่อม</li>
               <li>เข้าเรียนใช้สูตรเดียวกับหน้านักเรียน ไม่นับวันลา และคำนวณเมื่อมีการเช็คคาบเรียนอย่างน้อย 1 คาบ</li>
-              <li>คะแนนต่ำ คิดจากงานที่เลยกำหนดและตรวจแล้วเท่านั้น (ไม่รวมงานที่ยังไม่มีคะแนน)</li>
-              <li>ใช้เป็นสัญญาณให้ไปดูรายละเอียด ไม่ใช่ข้อสรุปเกี่ยวกับตัวนักเรียน ตัวเลขข้างต้นอยู่ในเบราว์เซอร์ ไม่ได้บันทึกลงระบบ</li>
+              <li>คะแนนต่ำ: คิดจากงานที่เลยกำหนดและตรวจแล้วเท่านั้น</li>
+              <li>ใช้เป็นสัญญาณให้ไปดูรายละเอียด ไม่ใช่ข้อสรุปเกี่ยวกับตัวนักเรียน ตัวเลขนี้อยู่ในเบราว์เซอร์ ไม่ได้บันทึกลงระบบ</li>
             </ul>
           </details>
         </>

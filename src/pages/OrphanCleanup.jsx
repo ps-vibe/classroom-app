@@ -16,6 +16,8 @@ const GROUPS = [
   { name: "itemAnalysis", label: "โครงข้อสอบ" },
   { name: "itemScores", label: "คะแนนรายข้อ" },
   { name: "rubric", label: "เกณฑ์ประเมินและกลุ่มของโปรเจกต์" },
+  { name: "submissions", label: "สถานะการส่งงาน (Classroom)" },
+  { name: "gcStudents", label: "การจับคู่อีเมลนักเรียน (Classroom)" },
   { name: "retakeImages", label: "รูปข้อสอบซ่อม" },
 ];
 
@@ -92,7 +94,8 @@ export default function OrphanCleanup() {
         switch (name) {
           case "scores":
           case "retakeAttempts":
-            if (!hasAsg(v.assignmentId)) return "ใบงานถูกลบแล้ว";
+          case "submissions":
+          if (!hasAsg(v.assignmentId)) return "ใบงานถูกลบแล้ว";
             if (!hasStu(v.studentCode)) return "นักเรียนถูกลบแล้ว";
             return "";
           case "attendance":
@@ -121,6 +124,8 @@ export default function OrphanCleanup() {
             if (name === "itemScores" && !hasStu(d.id)) return "นักเรียนถูกลบแล้ว";
             return "";
           }
+          case "gcStudents":
+            return hasStu(v.studentCode) ? "" : "นักเรียนถูกลบแล้ว";
           case "retakeImages":
             return referenced[c]?.has(d.id) ? "" : "ไม่มีชุดข้อสอบใดใช้แล้ว";
           default:
